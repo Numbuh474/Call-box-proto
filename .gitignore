@@ -1,0 +1,12 @@
+#build files
+**/.launches
+**/Debug
+**/.settings
+**/.settings.0
+**/targetConfigs
+
+#preferences
+*.prefs
+
+#documentation
+slau144j.pdf
