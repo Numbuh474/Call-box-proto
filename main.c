@@ -1,5 +1,80 @@
-#define __DEBUG
-#include "main.h"
+#include <msp430.h>
+#include <flash.h>
+#include <pins.h>
+#include <timer.h>
+
+#define MINIMUM_DECODE_DELTA 52
+#define DECODE_ARRAY_SIZE 160
+
+//Audio Channel Defines
+#define AUDIO_CHANNEL_NONE 0
+#define AUDIO_CHANNEL_1 1
+#define AUDIO_CHANNEL_2 2
+#define AUDIO_CHANNEL_3 3
+#define AUDIO_CHANNEL_4 4
+
+#define AUDIO_CHANNEL_TOTAL 4
+
+#define BUTTON_ID_INVALID 0xFF000000
+
+//GPIO definitions
+#define GPIO_RF_ACTIVITY_LED     BIT0  //P1.0
+#define GPIO_RF_INPUT            BIT1  //P1.1
+#define GPIO_AUDIO_REC1_ENABLE   BIT4  //P1.4
+#define GPIO_STATUS_LED          BIT6  //P1.6
+#define GPIO_AUDIO_CHAN1_ENABLE  BIT7  //P1.7
+#define GPIO_PROGRAM_BUTTON      BIT0  //P2.0
+#define GPIO_PROGRAM_BUTTON_1    BIT1  //P2.1
+#define GPIO_ERASE_BUTTONS       BIT2  //P2.2
+#define GPIO_CHAN1_REC_BUTTON    BIT4  //P2.4
+
+//flash structure
+typedef struct
+{
+    unsigned int flash_struct_ver;
+    unsigned int num_of_valid_ids;
+    unsigned long button_id_1;
+    unsigned long button_id_2;
+    unsigned long button_id_3;
+    unsigned long button_id_4;
+} flash_data_struct_t;
+
+volatile unsigned int new_cap=0;
+volatile unsigned int old_cap=0;
+volatile unsigned int cap_diff=0;
+
+unsigned int decode_array[DECODE_ARRAY_SIZE] = {0};
+unsigned int decode_array_head = 0;
+unsigned int decode_last_timestamp = 0;
+unsigned int decode_data_available = 0;
+unsigned int toggle_led_index = 0;
+unsigned int p2_gpio_int_state = 0;
+unsigned int program_mode_active = 0;
+unsigned int program_button_1_active = 0;
+unsigned int button_1_programmed = 0;
+
+flash_data_struct_t button_id_list = {0}; 
+
+void setup_pins(void);
+unsigned int add_decode_transition(unsigned int new_timestamp);
+unsigned long get_call_button_id(void);
+unsigned int get_next_decoded_bit(unsigned int decode_index);
+void reset_decoder(void);
+unsigned long call_button_received(void);
+void run_program(void);
+void play_audio(unsigned int audio_channel);
+void inline_delay(unsigned int delay_cycle);
+unsigned int get_audio_channel(unsigned long button_id);
+unsigned int get_num_active_chan(void);
+void load_button_ids(void);
+void write_button_ids(void);
+void erase_button_ids(void);
+void add_button_id(unsigned long new_button);
+void handle_receiver_inputs(void);
+void handle_user_inputs(void);
+void init_globals(void);
+unsigned long get_multiple_call_button_ids(unsigned int num_of_ids);
+
 
 int main(void)
 {
@@ -24,9 +99,6 @@ int main(void)
   //load buttons from flash
   load_button_ids();
 
-  //initialize queue system
-  queue_create(&id_queue, id_queue_array, (sizeof id_queue_array)/(sizeof id_queue_array[0]));
-
   //start program
   run_program();
   
@@ -49,17 +121,13 @@ void run_program(void)
     do
 	{
 	    //handle user programming inputs
-	    handle_user_inputs_alt();
+	    handle_user_inputs();
 
 	    //Handle receiver inputs
 	    handle_receiver_inputs();
 	    
-	    if(!program_mode_active)
-	    {
-	        play_from_queue();
-	    }
 	    
-	    if((program_button_active == 1) || button_1_programmed > 0)
+	    if((program_button_1_active == 1) || button_1_programmed > 0)
 	    {
 	        //TODO: user timer to toggle LED
 	        if(led_toggle == 0)
@@ -142,7 +210,7 @@ void init_globals(void)
     toggle_led_index = 0;
     p2_gpio_int_state = 0;
     program_mode_active = 0;
-    program_button_active = 0;
+    program_button_1_active = 0;
     button_1_programmed = 0;
 }
 
@@ -323,20 +391,20 @@ void reset_decoder(void)
 unsigned int get_next_decoded_bit(unsigned int decode_index)
 {
     unsigned int ret_bit = 0xFF;
-    if((decode_array[decode_index] >= 9900) && (decode_array[decode_index] <= 10300))
+    if((decode_array[decode_index] >= 9900) && (decode_array[decode_index] <= 10150))
     {
         ret_bit = 0x2;
     }
-    else if((decode_array[decode_index] >= 260) && (decode_array[decode_index] <= 450))
+    else if((decode_array[decode_index] >= 275) && (decode_array[decode_index] <= 400))
     {
-        if((decode_array[decode_index+1] >= 850) && (decode_array[decode_index+1] <= 1300))
+        if((decode_array[decode_index+1] >= 900) && (decode_array[decode_index+1] <= 1100))
         {
             ret_bit = 0;
         }
     }
-    else if((decode_array[decode_index] >= 850) && (decode_array[decode_index] <= 1300))
+    else if((decode_array[decode_index] >= 900) && (decode_array[decode_index] <= 1100))
     {
-        if((decode_array[decode_index+1] >= 250) && (decode_array[decode_index+1] <= 480))
+        if((decode_array[decode_index+1] >= 275) && (decode_array[decode_index+1] <= 400))
         {
             ret_bit = 1;
         }
@@ -379,19 +447,19 @@ unsigned int get_audio_channel(unsigned long button_id)
     for(index=0; index<AUDIO_CHANNEL_TOTAL; index++)
     {
         //TODO: refactory button_id_list to be an array
-        if((index == 0) && (button_id == button_id_list.button_id[0]))
+        if((index == 0) && (button_id == button_id_list.button_id_1))
         {
             ret_channel = AUDIO_CHANNEL_1;
         }
-        else if((index == 1) && (button_id == button_id_list.button_id[1]))
+        else if((index == 1) && (button_id == button_id_list.button_id_2))
         {
             ret_channel = AUDIO_CHANNEL_2;
         }
-        else if((index == 2) && (button_id == button_id_list.button_id[2]))
+        else if((index == 2) && (button_id == button_id_list.button_id_3))
         {
             ret_channel = AUDIO_CHANNEL_3;
         }
-        else if((index == 3) && (button_id == button_id_list.button_id[3]))
+        else if((index == 3) && (button_id == button_id_list.button_id_4))
         {
             ret_channel = AUDIO_CHANNEL_4;
         }
@@ -412,10 +480,10 @@ void load_button_ids(void)
     //initialize button list
     temp_button_id.flash_struct_ver = button_id_list.flash_struct_ver = FLASH_DATA_VERSION;
     temp_button_id.num_of_valid_ids = button_id_list.num_of_valid_ids = 0;
-    temp_button_id.button_id[0] = button_id_list.button_id[0] = 0xFF000000;
-    temp_button_id.button_id[1] = button_id_list.button_id[1] = 0xFF000000;
-    temp_button_id.button_id[2] = button_id_list.button_id[2] = 0xFF000000;
-    temp_button_id.button_id[3] = button_id_list.button_id[3] = 0xFF000000;
+    temp_button_id.button_id_1 = button_id_list.button_id_1 = 0xFF000000;
+    temp_button_id.button_id_2 = button_id_list.button_id_2 = 0xFF000000;
+    temp_button_id.button_id_3 = button_id_list.button_id_3 = 0xFF000000;
+    temp_button_id.button_id_4 = button_id_list.button_id_4 = 0xFF000000;
     
     //read the data from flash to RAM
     if(flash_read((char *)&temp_button_id, FLASH_BLOCK_SIZE, FLASH_BLOCK_VERSION_OFFSET) == 1)
@@ -424,16 +492,15 @@ void load_button_ids(void)
         if(temp_button_id.flash_struct_ver == FLASH_DATA_VERSION)
         {
             //valid version found, check for active channels
-            //if((temp_button_id.num_of_valid_ids >= 0) && (temp_button_id.num_of_valid_ids <= AUDIO_CHANNEL_TOTAL))
-            if(temp_button_id.num_of_valid_ids <= AUDIO_CHANNEL_TOTAL)
+            if((temp_button_id.num_of_valid_ids >= 0) && (temp_button_id.num_of_valid_ids <= AUDIO_CHANNEL_TOTAL))
             {
                 //initialize button list
                 button_id_list.flash_struct_ver = temp_button_id.flash_struct_ver;
                 button_id_list.num_of_valid_ids = temp_button_id.num_of_valid_ids;
-                button_id_list.button_id[0] = temp_button_id.button_id[0];
-                button_id_list.button_id[1] = temp_button_id.button_id[1];
-                button_id_list.button_id[2] = temp_button_id.button_id[2];
-                button_id_list.button_id[3] = temp_button_id.button_id[3];
+                button_id_list.button_id_1 = temp_button_id.button_id_1;
+                button_id_list.button_id_2 = temp_button_id.button_id_2;
+                button_id_list.button_id_3 = temp_button_id.button_id_3;
+                button_id_list.button_id_4 = temp_button_id.button_id_4;
 
                 //TODO: verify checksum for each valid button
                 
@@ -470,10 +537,10 @@ void erase_button_ids(void)
     //initialize button list
     button_id_list.flash_struct_ver = FLASH_DATA_VERSION;
     button_id_list.num_of_valid_ids = 0;
-    button_id_list.button_id[0] = 0xFF000000;
-    button_id_list.button_id[1] = 0xFF000000;
-    button_id_list.button_id[2] = 0xFF000000;
-    button_id_list.button_id[3] = 0xFF000000;
+    button_id_list.button_id_1 = 0xFF000000;
+    button_id_list.button_id_2 = 0xFF000000;
+    button_id_list.button_id_3 = 0xFF000000;
+    button_id_list.button_id_4 = 0xFF000000;
 
     if(flash_write((char *)&button_id_list, FLASH_BLOCK_SIZE, FLASH_BLOCK_VERSION_OFFSET) == 0)
     {
@@ -482,24 +549,12 @@ void erase_button_ids(void)
 
 }
 
-int add_button_id(unsigned long new_button, unsigned int index)
+void add_button_id(unsigned long new_button)
 {
-    //TODO: add support for multiple buttons
-    if (index < FLASH_BUTTON_ID_LENGTH)
-    {
-        button_id_list.button_id[index] = new_button;
-        unsigned int i = 0;
-        unsigned int count = 0;
-        for ( ; i < FLASH_BUTTON_ID_LENGTH; i++)
-        {
-            if (button_id_list.button_id[i] != BUTTON_ID_INVALID)
-                count++;
-        }
-        button_id_list.num_of_valid_ids = count;
-        write_button_ids();
-        return 1;
-    }
-    return 0;
+    //TODO: add support for multipe buttons
+    button_id_list.button_id_1 = new_button;
+    button_id_list.num_of_valid_ids = 1;
+    write_button_ids();
 }
 
 void handle_receiver_inputs(void)
@@ -507,7 +562,7 @@ void handle_receiver_inputs(void)
     unsigned long data_received = 0;
     unsigned int audio_channel = AUDIO_CHANNEL_NONE;
 
-    if( (decode_data_available > 0) && (program_button_active == 0))
+    if( (decode_data_available > 0) && (program_button_1_active == 0))
     {
         stop_timera();
         data_received = call_button_received();
@@ -516,21 +571,19 @@ void handle_receiver_inputs(void)
         {
             turn_on_p1_led(GPIO_RF_ACTIVITY_LED);
             audio_channel = get_audio_channel(data_received);
-            //play_audio(audio_channel);
-            if(audio_channel != AUDIO_CHANNEL_NONE)
-                add_to_queue(audio_channel);
+            play_audio(audio_channel);
         }
         start_timera();
     }
-    else if((decode_data_available > 0) && (program_button_active))
+    else if((decode_data_available > 0) && (program_button_1_active == 1))
     {
         stop_timera();
         data_received = get_multiple_call_button_ids(3);
         reset_decoder();
         if(data_received > 0)
         {
-            add_button_id(data_received,program_button_target);
-            program_button_active = 0;
+            add_button_id(data_received);
+            program_button_1_active = 0;
             button_1_programmed = 600;
         }
         else
@@ -540,6 +593,7 @@ void handle_receiver_inputs(void)
     }
     turn_off_p1_led(GPIO_RF_ACTIVITY_LED);
 }
+
 void handle_user_inputs(void)
 {
     unsigned int p2_gpio_cur_state = P2IN;
@@ -559,28 +613,28 @@ void handle_user_inputs(void)
     //TODO: move debounce to timer and check for button release
     //debounce
     inline_delay(0x300);
-
+    
     p2_gpio_debounce_state = p2_gpio_cur_state & P2IN;
-
+    
     prog_button_pressed = p2_gpio_debounce_state & GPIO_PROGRAM_BUTTON;
     prog_button_1_pressed = p2_gpio_debounce_state & GPIO_PROGRAM_BUTTON_1;
     prog_buttons_erase_pressed = p2_gpio_debounce_state & GPIO_ERASE_BUTTONS;
     prog_buttons_1_rec_pressed = p2_gpio_debounce_state & GPIO_CHAN1_REC_BUTTON;
-
+    
     if(prog_button_pressed || prog_button_1_pressed || prog_buttons_erase_pressed || prog_buttons_1_rec_pressed)
     {
         prog_button_debounce_count = 3;
         prog_button_1_debounce_count = 3;
         prog_buttons_erase_debounce_count = 3;
         prog_buttons_1_rec_debounce_count = 3;
-
+        
         if((program_mode_active == 1) && (prog_buttons_1_rec_pressed > 0))
         {
             turn_on_p1_led(GPIO_RF_ACTIVITY_LED);
             set_gpio_p1_high(GPIO_AUDIO_REC1_ENABLE);
         }
         //wait for the release
-        while((prog_button_pressed && (prog_button_debounce_count > 0))   ||
+        while((prog_button_pressed && (prog_button_debounce_count > 0))   || 
               (prog_button_1_pressed && (prog_button_1_debounce_count>0)) ||
               (prog_buttons_erase_pressed && (prog_buttons_erase_debounce_count>0)) ||
               (prog_buttons_1_rec_pressed && (prog_buttons_1_rec_debounce_count>0)))
@@ -630,7 +684,7 @@ void handle_user_inputs(void)
     {
         turn_on_p1_led(GPIO_STATUS_LED);
         program_mode_active = 1;
-
+        
         //stop receiver
         stop_timera();
         turn_off_p1_led(GPIO_RF_ACTIVITY_LED);
@@ -641,264 +695,32 @@ void handle_user_inputs(void)
         //wait for release
         turn_off_p1_led(GPIO_STATUS_LED);
         program_mode_active = 0;
-        program_button_active = 0;
-
+        program_button_1_active = 0;
+        
         reset_decoder();
         //start timer
         start_timera();
     }
-    else if((program_button_active == 0) && (program_mode_active == 1) && prog_button_1_released)
+    else if((program_button_1_active == 0) && (program_mode_active == 1) && prog_button_1_released)
     {
-        program_button_active = 1;
-        program_button_target = 0;
+        program_button_1_active = 1;
         reset_decoder();
         //start timer
         start_timera();
     }
-    else if((program_button_active == 0) && (program_mode_active == 1) && prog_buttons_erase_released)
+    else if((program_button_1_active == 0) && (program_mode_active == 1) && prog_buttons_erase_released)
     {
         turn_on_p1_led(GPIO_RF_ACTIVITY_LED);
         erase_button_ids();
         inline_delay(0x800);
         turn_off_p1_led(GPIO_RF_ACTIVITY_LED);
     }
-
+    
     //TODO: add interrupt support for buttons
     //clear interrupts
     //P2IE |= (GPIO_PROGRAM_BUTTON);
     //P2IFG &= ~(GPIO_PROGRAM_BUTTON);
 }
-void handle_user_inputs_alt(void)
-{
-    unsigned int p2_gpio_cur_state = P2IN;
-    unsigned int p2_gpio_debounce_state = 0;
-    p2_gpio_int_state = 0;
-
-    unsigned int prog_button_pressed[4];
-    unsigned int prog_button_released[4];
-    unsigned int prog_button_debounce_count[4];
-    unsigned int prog_button_delta [4];
-    unsigned long audio_channel [4];
-    unsigned int count = 0;
-
-    static unsigned int button_counter = 0;
-    static unsigned int button_timer = 0;
-    static unsigned int button_focus = 0;
-
-    for (count = 0; count< 4; count++)
-    {
-        prog_button_pressed[count] = 0;
-        prog_button_released[count] = 0;
-        prog_button_debounce_count[count] = 0;
-        prog_button_delta[count] = 0;
-    }
-
-    audio_channel[0] = get_audio_channel(button_id_list.button_id[0]);
-    audio_channel[1] = get_audio_channel(button_id_list.button_id[1]);
-    audio_channel[2] = get_audio_channel(button_id_list.button_id[2]);
-    audio_channel[3] = get_audio_channel(button_id_list.button_id[3]);
-
-    inline_delay(0x300);
-    
-    p2_gpio_debounce_state = p2_gpio_cur_state & P2IN;
-    
-    prog_button_pressed[0] = p2_gpio_debounce_state & GPIO_PROGRAM_BUTTON;
-    prog_button_pressed[1] = p2_gpio_debounce_state & GPIO_PROGRAM_BUTTON_1;
-    prog_button_pressed[2] = p2_gpio_debounce_state & GPIO_ERASE_BUTTONS;
-    prog_button_pressed[3] = p2_gpio_debounce_state & GPIO_CHAN1_REC_BUTTON;
-    
-    if(prog_button_pressed[0] || prog_button_pressed[1] || prog_button_pressed[2] || prog_button_pressed[3])
-    {
-        for (count=0; count<4; count++)
-        {
-            prog_button_debounce_count[count] = 3;
-        }
-        
-        while((prog_button_pressed[0] && (prog_button_debounce_count[0]>0)) ||
-              (prog_button_pressed[1] && (prog_button_debounce_count[1]>0)) ||
-              (prog_button_pressed[2] && (prog_button_debounce_count[2]>0)) ||
-              (prog_button_pressed[3] && (prog_button_debounce_count[3]>0)))
-        {
-            inline_delay(0x30);
-
-            if(prog_button_pressed[0] && ((P2IN & GPIO_PROGRAM_BUTTON) == 0))
-            {
-                prog_button_debounce_count[0]--;
-            }
-            if(prog_button_pressed[1] && ((P2IN & GPIO_PROGRAM_BUTTON_1) == 0))
-            {
-                prog_button_debounce_count[1]--;
-            }
-            if(prog_button_pressed[2] && ((P2IN & GPIO_ERASE_BUTTONS) == 0))
-            {
-                prog_button_debounce_count[2]--;
-            }
-            if(prog_button_pressed[3] && ((P2IN & GPIO_CHAN1_REC_BUTTON) == 0))
-            {
-                prog_button_debounce_count[3]--;
-            }
-            for (count=0; count<4; count++)
-            {
-                if(prog_button_pressed[count] && prog_button_delta[count] != ~(unsigned int)0)
-                {
-                    prog_button_delta[count]++;
-                    //enable recording if button 0 held for 5000mut
-                    if (prog_button_delta[0] > 5000 && button_counter == 0)
-                    {
-                        turn_on_p1_led(GPIO_RF_ACTIVITY_LED);
-                        set_gpio_p1_high(GPIO_AUDIO_REC1_ENABLE);
-                    }
-                }
-            }
-        }
-        for (count=0; count<4; count++)
-        {
-            if(prog_button_debounce_count[count] == 0)
-                {
-                    //program button was pressed and released
-                    prog_button_released[count] = 1;
-                }
-        }
-
-    }
-    for(count = 0; count<4; count++)
-    {
-        if (prog_button_released[count])
-        {
-            if ( button_focus != count || button_counter == 0)
-            {
-                button_counter = 1;
-            }
-            else
-            {
-                button_counter++;
-            }
-            button_focus = count;
-            button_timer = 0;
-            //disable recording if button 0 pressed once for 5000mut
-            if (prog_button_delta[count] > 5000 )//&& button_counter == 1)
-            {
-                set_gpio_p1_low(GPIO_AUDIO_REC1_ENABLE);
-                turn_off_p1_led(GPIO_RF_ACTIVITY_LED);
-                button_counter = 0;
-                button_timer = 0;
-            }
-        }
-    }
-
-    //not checking for timeout
-    if (button_counter == 0)
-    {
-        //do nothing here
-    }
-    //checking for timeout at 50mut
-    else if (button_timer <= 50)
-    {
-        //no timeout
-        button_timer++;
-    }
-    //timeout occurred
-    else //if (button_timer > 50)
-    {
-        button_timer = 0;
-
-        if (button_counter == 1)
-        {
-            button_counter = 0;
-            //play audio
-            if (program_mode_active == 0)
-            {
-                play_audio(audio_channel[button_focus]);
-            }
-            //disable program mode
-            else
-            {
-                button_counter = 0;
-                turn_off_p1_led(GPIO_STATUS_LED);
-                program_mode_active = 0;
-                program_button_active = 0;
-                reset_decoder();
-                start_timera();
-            }
-        }
-        //enter program mode and record button 1
-        else if (button_counter == 3 && !program_mode_active)
-        {
-            button_counter = 0;
-            //enter program mode
-            turn_on_p1_led(GPIO_STATUS_LED);
-            program_mode_active = 1;
-
-            //stop receiver
-            stop_timera();
-            turn_off_p1_led(GPIO_RF_ACTIVITY_LED);
-
-            //enable button record
-            program_button_active = 1;
-            program_button_target = button_focus;
-            reset_decoder();
-            //start timer
-            start_timera();
-        }
-        //erase all buttons by pressing button 0 5 times
-        else if (button_counter == 5 && button_focus==0 && !program_mode_active && !program_button_active)
-        {
-            //turn_on_p1_led(GPIO_RF_ACTIVITY_LED);
-            turn_on_p1_led(GPIO_STATUS_LED);
-            erase_button_ids();
-            inline_delay(0x800);
-            //turn_off_p1_led(GPIO_RF_ACTIVITY_LED);
-            turn_on_p1_led(GPIO_STATUS_LED);
-        }
-        //any other number of presses detected with timeout
-        else
-        {
-            button_timer = 0;
-            button_counter= 0;
-        }
-    }
-
-    //exit program mode if in program mode and not programming button 1
-    if( program_mode_active && !(program_button_active) && !(button_1_programmed) )
-    {
-        turn_on_p1_led(GPIO_STATUS_LED);
-        //for(count = 20; count > 0; count--)
-        //    inline_delay(0x4000);
-        //exit program mode
-        //wait for release
-        turn_off_p1_led(GPIO_STATUS_LED);
-        program_mode_active = 0;
-        program_button_active = 0;
-
-        reset_decoder();
-        //start timer
-        start_timera();
-    }
-}
-
-void add_to_queue(unsigned int button_id)
-{
-    queue_enqueue(&id_queue,button_id);
-}
-
-void play_from_queue()
-{
-    //TODO:rework for timer;
-    static unsigned long timer = 0;
-
-    if (id_queue.length > 0 && timer==0)
-    {
-        unsigned long saved_channel = queue_dequeue(&id_queue);
-        play_audio(saved_channel);
-        timer = 20000;
-    }
-    else if(timer > 0)
-    {
-        timer--;
-    }
-}
-
-
 
 #pragma vector = TIMER0_A0_VECTOR
 __interrupt void TimerA0(void)
@@ -913,7 +735,7 @@ __interrupt void TimerA0(void)
         cap_diff = (0xFFFF-old_cap) + new_cap;
     }
     
-    if(((program_mode_active == 0) || (program_button_active == 1))  && (add_decode_transition(cap_diff) == 1))
+    if(((program_mode_active == 0) || (program_button_1_active == 1))  && (add_decode_transition(cap_diff) == 1))
     {
         //disable interrupt
         CCTL0 &= ~(CCIE);
