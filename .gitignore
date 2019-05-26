@@ -58,7 +58,4 @@ dkms.conf
 *.ccxml
 .ccsproject
 .cproject
-.project
-/*.cmd
 Debug/
-/targetConfigs
