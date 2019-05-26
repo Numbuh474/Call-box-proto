@@ -51,8 +51,11 @@ Module.symvers
 Mkfile.old
 dkms.conf
 
-# Editor Preferences
+# Misc
 *.prefs
-
-#Documentation
 /*.pdf
+*.xml
+*.ccxml
+.ccsproject
+.cproject
+Debug/
