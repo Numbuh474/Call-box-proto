@@ -66,7 +66,7 @@ int queue_set(struct Queue * queue, unsigned int index, queue_t data)
 
 int queue_insert(struct Queue * queue, unsigned int index, queue_t data)
 {
-    if (index <= queue->length && queue->length < queue->capacity && index >= 0)
+    if (index <= queue->length && queue->length < queue->capacity)
     {
         queue_t tmp;
         queue->length++;

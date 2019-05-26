@@ -1,3 +1,6 @@
+#ifndef FLASH_H_
+#define FLASH_H_
+
 #include <msp430.h>
 #include <stddef.h>
 //flash structure
@@ -30,3 +33,6 @@ void init_flash(void);
 unsigned char flash_write(char *data_ptr, unsigned int data_size, unsigned int offset);
 unsigned char flash_read(char *data_ret_ptr, unsigned int data_size, unsigned int offset);
 char flash_read_byte(unsigned int offset);
+
+
+#endif

@@ -18,7 +18,6 @@
 #define AUDIO_CHANNEL_2 1
 #define AUDIO_CHANNEL_3 1
 #define AUDIO_CHANNEL_4 1
-
 #define AUDIO_CHANNEL_TOTAL 4
 #define BUTTON_ID_INVALID 0xFF000000
 
@@ -33,28 +32,29 @@
 #define GPIO_ERASE_BUTTONS       BIT2  //P2.2
 #define GPIO_CHAN1_REC_BUTTON    BIT4  //P2.4
 
-volatile unsigned int new_cap=0;
+/*volatile unsigned int new_cap=0;
 volatile unsigned int old_cap=0;
 volatile unsigned int cap_diff=0;
 unsigned int decode_array[DECODE_ARRAY_SIZE] = {0};
 unsigned int decode_array_head = 0;
 unsigned int decode_last_timestamp = 0;
-unsigned int decode_data_available = 0;
-unsigned int toggle_led_index = 0;
-unsigned int p2_gpio_int_state = 0;
-unsigned int program_mode_active = 0;
-unsigned int program_button_active = 0;
-unsigned int program_button_target = 0;
+unsigned int decode_data_available = 0;*/
+unsigned int toggle_led_index;
+unsigned int p2_gpio_int_state;
+unsigned int program_mode_active;
+unsigned int program_button_active;
+unsigned int program_button_target;
 
-unsigned int button_1_programmed = 0;
+unsigned int button_1_programmed;
 
-unsigned int message_length = 0;
+//unsigned int message_length;
 
-flash_data_struct_t button_id_list = {0};
-struct Queue id_queue = {0};
+flash_data_struct_t button_id_list;
+struct Queue id_queue;
 queue_t id_queue_array [8];
 
 
+void init_clk();
 void setup_pins(void);
 unsigned int add_decode_transition(unsigned int new_timestamp);
 unsigned long get_call_button_id(void);
@@ -71,6 +71,7 @@ void write_button_ids(void);
 void erase_button_ids(void);
 int add_button_id(unsigned long new_button, unsigned int index);
 void handle_receiver_inputs(void);
+void handle_receiver_inputs_alt(void);
 void handle_user_inputs(void);
 void handle_user_inputs_alt(void);
 void init_globals(void);

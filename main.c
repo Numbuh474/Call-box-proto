@@ -1,4 +1,9 @@
-#define __DEBUG
+#include <msp430.h>
+#include <flash.h>
+#include <pins.h>
+#include <timer.h>
+#include <stddef.h>
+#include "queue.h"
 #include "main.h"
 
 int main(void)
@@ -8,6 +13,8 @@ int main(void)
   for (i=0; i<20000; i++)                   // Delay for crystal stabilization
   {
   }
+  //initialize system clock
+  init_clk();
   
   //make sure all global variables are initialized to known value
   init_globals();
@@ -16,7 +23,7 @@ int main(void)
   setup_pins();
 
   //setup timer
-  timer_a_init();
+  timera_init();
   
   //initialize flash part
   init_flash();
@@ -40,10 +47,11 @@ void run_program(void)
     //TODO: update to only enable timer when there are valid buttons programmed
     //check to see if there are valid buttons
     //if(button_id_list.num_of_valid_ids > 0)
-    {
+    //done on invocation of start_timera();
+    /*{
         //enable capture interrupt
         CCTL0 |= CCIE;
-    }
+    }*/
     __enable_interrupt(); // Enable Global Interrupts
 
     do
@@ -52,7 +60,7 @@ void run_program(void)
 	    handle_user_inputs_alt();
 
 	    //Handle receiver inputs
-	    handle_receiver_inputs();
+	    handle_receiver_inputs_alt();
 	    
 	    if(!program_mode_active)
 	    {
@@ -94,6 +102,16 @@ void run_program(void)
 	while(prog_run);
 }
 
+void init_clk()
+{
+    //if (CALBC1_1MHZ != 0xFF)   //check for calibration constant
+    //constant definition in msp430xxx.h, should fail to compile if
+    //microprocessor does not support
+    DCOCTL = 0;
+    BCSCTL1 = CALBC1_1MHZ;
+    DCOCTL  = CALDCO_1MHZ;
+}
+
 void setup_pins(void)
 {
      // set P1 GPIOs
@@ -132,20 +150,27 @@ void setup_pins(void)
 
 void init_globals(void)
 {
-    new_cap=0;
-    old_cap=0;
-    cap_diff=0;
+    //new_cap=0;
+    //old_cap=0;
+    //cap_diff=0;
     
-    decode_array_head = 0;
-    decode_last_timestamp = 0;
-    decode_data_available = 0;
+    //decode_array_head = 0;
+    //decode_last_timestamp = 0;
+    //decode_data_available = 0;
     toggle_led_index = 0;
     p2_gpio_int_state = 0;
     program_mode_active = 0;
     program_button_active = 0;
     button_1_programmed = 0;
-}
+    program_button_active = 0;
+    program_button_target = 0;
 
+    //message_length = 0;
+    flash_data_struct_t button_id_list = {0};
+    struct Queue id_queue = {0};
+
+}
+/*
 unsigned long call_button_received(void)
 {
     unsigned long data_received = 0;
@@ -157,8 +182,8 @@ unsigned long call_button_received(void)
         reset_decoder();
     }
     return data_received;
-}
-
+}*/
+/*
 unsigned int add_decode_transition(unsigned int new_timestamp)
 {
     unsigned int stop_timer = 0;
@@ -182,8 +207,8 @@ unsigned int add_decode_transition(unsigned int new_timestamp)
     }
     return stop_timer;
     
-}
-
+}*/
+/*
 unsigned long get_call_button_id(void)
 {
     unsigned int current_head = decode_array_head;
@@ -230,8 +255,8 @@ unsigned long get_call_button_id(void)
         }
     }
     return button_id;
-}
-
+}*/
+/*
 unsigned long get_multiple_call_button_ids(unsigned int num_of_ids)
 {
     unsigned int current_head = decode_array_head;
@@ -304,8 +329,8 @@ unsigned long get_multiple_call_button_ids(unsigned int num_of_ids)
         }
     }
     return button_id;
-}
-
+}*/
+/*
 void reset_decoder(void)
 {
     unsigned int i;
@@ -318,8 +343,8 @@ void reset_decoder(void)
     decode_last_timestamp = 0;
     decode_data_available = 0;
     
-}
-
+}*/
+/*
 unsigned int get_next_decoded_bit(unsigned int decode_index)
 {
     unsigned int ret_bit = 0xFF;
@@ -342,7 +367,7 @@ unsigned int get_next_decoded_bit(unsigned int decode_index)
         }
     }
     return ret_bit;
-}
+}*/
 
 void play_audio(unsigned int audio_channel)
 {
@@ -502,10 +527,10 @@ int add_button_id(unsigned long new_button, unsigned int index)
     return 0;
 }
 
-void handle_receiver_inputs(void)
+/*void handle_receiver_inputs(void)
 {
     unsigned long data_received = 0;
-    unsigned int audio_channel = AUDIO_CHANNEL_NONE;
+    //unsigned int audio_channel = AUDIO_CHANNEL_NONE;
 
     if( (decode_data_available > 0) && (program_button_active == 0))
     {
@@ -514,11 +539,12 @@ void handle_receiver_inputs(void)
         
         if( data_received > 0)
         {
-            turn_on_p1_led(GPIO_RF_ACTIVITY_LED);
-            audio_channel = get_audio_channel(data_received);
+            //turn_on_p1_led(GPIO_RF_ACTIVITY_LED);
+            add_to_queue(data_received);
+            //audio_channel = get_audio_channel(data_received);
             //play_audio(audio_channel);
-            if(audio_channel != AUDIO_CHANNEL_NONE)
-                add_to_queue(audio_channel);
+            //if(audio_channel != AUDIO_CHANNEL_NONE)
+
         }
         start_timera();
     }
@@ -539,7 +565,28 @@ void handle_receiver_inputs(void)
         }
     }
     turn_off_p1_led(GPIO_RF_ACTIVITY_LED);
+}*/
+void handle_receiver_inputs_alt(void)
+{
+    unsigned long data_received = 0;
+    if(timer_state==flag && program_button_active == 0)
+    {
+        data_received = timer_get_transmission();
+        if(data_received!=BUTTON_ID_INVALID)
+            add_to_queue(data_received);
+    }
+    else if (timer_state == flag && program_button_active)
+    {
+        data_received = timer_get_transmission();
+        if (data_received != BUTTON_ID_INVALID)
+        {
+            add_button_id(data_received, program_button_target);
+            program_button_active = 0;
+            button_1_programmed = 600;
+        }
+    }
 }
+/*
 void handle_user_inputs(void)
 {
     unsigned int p2_gpio_cur_state = P2IN;
@@ -653,7 +700,7 @@ void handle_user_inputs(void)
         program_button_target = 0;
         reset_decoder();
         //start timer
-        start_timera();
+        start_timera_capture();
     }
     else if((program_button_active == 0) && (program_mode_active == 1) && prog_buttons_erase_released)
     {
@@ -667,7 +714,7 @@ void handle_user_inputs(void)
     //clear interrupts
     //P2IE |= (GPIO_PROGRAM_BUTTON);
     //P2IFG &= ~(GPIO_PROGRAM_BUTTON);
-}
+}*/
 void handle_user_inputs_alt(void)
 {
     unsigned int p2_gpio_cur_state = P2IN;
@@ -817,7 +864,7 @@ void handle_user_inputs_alt(void)
                 turn_off_p1_led(GPIO_STATUS_LED);
                 program_mode_active = 0;
                 program_button_active = 0;
-                reset_decoder();
+                //reset_decoder();
                 start_timera();
             }
         }
@@ -836,7 +883,7 @@ void handle_user_inputs_alt(void)
             //enable button record
             program_button_active = 1;
             program_button_target = button_focus;
-            reset_decoder();
+            //reset_decoder();
             //start timer
             start_timera();
         }
@@ -870,7 +917,7 @@ void handle_user_inputs_alt(void)
         program_mode_active = 0;
         program_button_active = 0;
 
-        reset_decoder();
+        //reset_decoder();
         //start timer
         start_timera();
     }
@@ -883,14 +930,16 @@ void add_to_queue(unsigned int button_id)
 
 void play_from_queue()
 {
-    //TODO:rework for timer;
+    //TODO:
     static unsigned long timer = 0;
 
     if (id_queue.length > 0 && timer==0)
     {
-        unsigned long saved_channel = queue_dequeue(&id_queue);
-        play_audio(saved_channel);
-        timer = 20000;
+        unsigned long audio_channel = 0;
+        turn_on_p1_led(GPIO_RF_ACTIVITY_LED);
+        audio_channel = get_audio_channel(queue_dequeue(&id_queue));
+        play_audio(audio_channel);
+        timer = 1000000;
     }
     else if(timer > 0)
     {
@@ -899,9 +948,114 @@ void play_from_queue()
 }
 
 
+//interrupts
+//capture-based interrupt
+#pragma vector = TIMER0_A1_VECTOR
+__interrupt void TimerA1(void)
+{
+    switch(timer_state)
+    {
+    case idle:
+    {
+        start_timera_capturecompare(TIMER_SYN_MAX_LEN);
+        stop_timera();
+        timer_state = syn;
+        start_timera_capturecompare(TIMER_SYN_MAX_LEN);
+        break;
+    }
+    case syn:
+    {
+        timer_poll_rate = TACCR1;
+        if ( timer_poll_rate > TIMER_SYN_MIN_LEN)
+        {
+            timer_state = read;
+            timer_poll_rate = timer_poll_rate/64;
+            timer_rcv_index = 0;
+            start_timera_compare(timer_poll_rate);
+        }
+        else
+        {
+            timer_state = idle;
+            start_timera_capture();
+        }
 
+    }
+    }
+}
+//timing-based interrupt
 #pragma vector = TIMER0_A0_VECTOR
 __interrupt void TimerA0(void)
+{
+    switch(timer_state)
+    {
+    //overflow while waiting for syn
+    case syn:
+    {
+        timera_init();
+        start_timera_capture();
+        timer_state = idle;
+        break;
+    }
+    //capture current signal
+    case read:
+    {
+        if (timer_rcv_index<TIMER_RCV_BIT_LEN)
+        {
+            //timer_push(TACCTL0 & SCCI);
+            unsigned int signal = (TACCTL0 & SCCI);
+            if(timer_poll_count==0)
+                timer_rcv_buffer[timer_rcv_index]= error;
+            else if( timer_poll_count%2==1 )
+            {
+                timer_rcv_buffer[timer_rcv_index] =
+                     timer_rcv_buffer[timer_rcv_index] << 1;
+                if (signal)
+                {
+                  timer_rcv_buffer[timer_rcv_index]++;
+                  P1OUT |= GPIO_RF_ACTIVITY_LED;
+                }
+                else // if (!signal)
+                  P1OUT &= ~(GPIO_RF_ACTIVITY_LED);
+                toggle_led_index++;
+            }
+            if (timer_poll_count++ >= 7)
+            {
+                 timer_poll_count = 0;
+                 timer_rcv_index++;
+            }
+        }
+        else //if (timer_rcv_index >= TIMER_RCV_BIT_LEN)
+        {
+            if (timer_decode())
+            {
+                timer_state = flag;
+            }
+            else
+                start_timera_capture();
+                timer_state = idle;
+        }
+        break;
+    }
+    case flag:
+    {
+        stop_timera();
+        break;
+    }
+    case off:
+        break;
+    default:
+    {
+        //TODO:
+        timera_init();
+        start_timera();
+    }
+    }
+
+}
+
+/*
+#pragma vector = TIMER0_A1_VECTOR
+__interrupt void TimerA1(void)
 {
     new_cap = TACCR0;
     if(new_cap >= old_cap)
@@ -912,7 +1066,7 @@ __interrupt void TimerA0(void)
     {
         cap_diff = (0xFFFF-old_cap) + new_cap;
     }
-    
+
     if(((program_mode_active == 0) || (program_button_active == 1))  && (add_decode_transition(cap_diff) == 1))
     {
         //disable interrupt
@@ -920,7 +1074,7 @@ __interrupt void TimerA0(void)
         //TODO: enable interrupt operation
         //LPM0_EXIT;
     }
-    
+
     if (toggle_led_index == MINIMUM_DECODE_DELTA)
     {
         toggle_led_index = 0;
@@ -930,12 +1084,8 @@ __interrupt void TimerA0(void)
     toggle_led_index++;
     old_cap = new_cap;                       // store this capture value
 }
+*/
 
-#pragma vector = TIMER0_A1_VECTOR
-__interrupt void TimerA1(void)
-{
-    
-}
 
 // //Port 2 interrupt service routine
 // #pragma vector = PORT2_VECTOR
@@ -947,4 +1097,3 @@ __interrupt void TimerA1(void)
 //     P2IFG &= ~(GPIO_PROGRAM_BUTTON);
 //     //LPM0_EXIT;
 // }
-

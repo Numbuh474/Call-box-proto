@@ -1,13 +1,9 @@
-//button 1 m:   340708
-//button 1 s:   A03811
-//button 2 m:   EF877A
-//button 2 s:   877A41
 #ifndef QUEUE_H_
 #define QUEUE_H_
 
 #ifndef QUEUE_T
 #define QUEUE_T
-typedef unsigned int queue_t;
+typedef unsigned long queue_t;
 #endif
 
 struct Queue
