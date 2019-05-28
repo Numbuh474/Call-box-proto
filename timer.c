@@ -4,12 +4,12 @@ void timera_init(void)
 {
     //SMCLK, SMCLK/1, halt mode, clear TAR and divider, enable interrupt
     //TACTL = TASSEL_2 + ID_0 + MC_0 + TAIE;
-    TACTL = TASSEL_2 | ID_0 | MC_0 | TACLR | TAIE;
+    TACTL = TASSEL_2 | ID_0 | MC_0 | TACLR;
 
     //system clock initialization moved to init_clk();
     //set timer overflow register here;
     TACCR0 = 0xFFFF;
-    TACCTL0 = CM_0 | CCIS_0 | SCS;
+    TACCTL0 = CM_0 | CCIS_0;
     TACCTL1 = CM_1 | CCIS_0 | SCS | CAP | OUTMOD_0;
 
     timer_state = off;

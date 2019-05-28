@@ -951,12 +951,6 @@ void play_from_queue()
 
 
 //interrupts
-//CCR0
-#pragma vector = TIMER0_A0_VECTOR
-__interrupt void TimerA0(void)
-{
-    return;
-}
 //TAOVF and CCR1
 #pragma vector = TIMER0_A1_VECTOR
 __interrupt void TimerA1(void)
@@ -966,14 +960,16 @@ __interrupt void TimerA1(void)
     {
     case idle:
     {
-        //if (flags & TA0IV_TACCR1)
-        timer_state = syn;
-        start_timera_capturecompare(TIMER_SYN_MAX_LEN);
+        if (flags==TA0IV_TACCR1)
+        {
+            timer_state = syn;
+            start_timera_capturecompare(TIMER_SYN_MAX_LEN);
+        }
         break;
     }
     case syn:
     {
-        if ((flags & TA0IV_TAIFG) || TACCR1 < TIMER_SYN_MIN_LEN)
+        if ((flags==TA0IV_TAIFG) || TACCR1 < TIMER_SYN_MIN_LEN)
         {
             timer_state = idle;
             start_timera_capture();
