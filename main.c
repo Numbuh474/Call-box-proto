@@ -53,7 +53,7 @@ void run_program(void)
         CCTL0 |= CCIE;
     }*/
     __enable_interrupt(); // Enable Global Interrupts
-
+    start_timera();
     do
 	{
 	    //handle user programming inputs
@@ -104,12 +104,14 @@ void run_program(void)
 
 void init_clk()
 {
-    //if (CALBC1_1MHZ != 0xFF)   //check for calibration constant
+    if (CALBC1_1MHZ != 0xFF)   //check for calibration constant
     //constant definition in msp430xxx.h, should fail to compile if
     //microprocessor does not support
-    DCOCTL = 0;
-    BCSCTL1 = CALBC1_1MHZ;
-    DCOCTL  = CALDCO_1MHZ;
+    {
+        DCOCTL = 0;
+        BCSCTL1 = CALBC1_1MHZ;
+        DCOCTL  = CALDCO_1MHZ;
+    }
 }
 
 void setup_pins(void)
@@ -949,108 +951,69 @@ void play_from_queue()
 
 
 //interrupts
-//capture-based interrupt
+//CCR0
+#pragma vector = TIMER0_A0_VECTOR
+__interrupt void TimerA0(void)
+{
+    return;
+}
+//TAOVF and CCR1
 #pragma vector = TIMER0_A1_VECTOR
 __interrupt void TimerA1(void)
 {
-    switch(timer_state)
+    unsigned int flags = TAIV;
+    switch (timer_state)
     {
     case idle:
     {
-        start_timera_capturecompare(TIMER_SYN_MAX_LEN);
-        stop_timera();
+        //if (flags & TA0IV_TACCR1)
         timer_state = syn;
         start_timera_capturecompare(TIMER_SYN_MAX_LEN);
         break;
     }
     case syn:
     {
-        timer_poll_rate = TACCR1;
-        if ( timer_poll_rate > TIMER_SYN_MIN_LEN)
-        {
-            timer_state = read;
-            timer_poll_rate = timer_poll_rate/64;
-            timer_rcv_index = 0;
-            start_timera_compare(timer_poll_rate);
-        }
-        else
+        if ((flags & TA0IV_TAIFG) || TACCR1 < TIMER_SYN_MIN_LEN)
         {
             timer_state = idle;
             start_timera_capture();
         }
-
-    }
-    }
-}
-//timing-based interrupt
-#pragma vector = TIMER0_A0_VECTOR
-__interrupt void TimerA0(void)
-{
-    switch(timer_state)
-    {
-    //overflow while waiting for syn
-    case syn:
-    {
-        timera_init();
-        start_timera_capture();
-        timer_state = idle;
+        else //if ((flags & TA0IV_TACCR1) && TACCR1 >= TIMER_SYN_MIN_LEN)
+        {
+            timer_state = read;
+            timer_poll_rate = TACCR1 / 64;
+            timer_poll_count = 0;
+            timer_rcv_index = 0;
+            start_timera_compare(timer_poll_rate);
+        }
         break;
     }
-    //capture current signal
     case read:
     {
-        if (timer_rcv_index<TIMER_RCV_BIT_LEN)
+        //if (flags & TA0IV_TAIFG)
+        if(timer_rcv_index < TIMER_RCV_BIT_LEN)
+            timer_push();
+        else
         {
-            //timer_push(TACCTL0 & SCCI);
-            unsigned int signal = (TACCTL0 & SCCI);
-            if(timer_poll_count==0)
-                timer_rcv_buffer[timer_rcv_index]= error;
-            else if( timer_poll_count%2==1 )
+            if(timer_decode())
             {
-                timer_rcv_buffer[timer_rcv_index] =
-                     timer_rcv_buffer[timer_rcv_index] << 1;
-                if (signal)
-                {
-                  timer_rcv_buffer[timer_rcv_index]++;
-                  P1OUT |= GPIO_RF_ACTIVITY_LED;
-                }
-                else // if (!signal)
-                  P1OUT &= ~(GPIO_RF_ACTIVITY_LED);
-                toggle_led_index++;
-            }
-            if (timer_poll_count++ >= 7)
-            {
-                 timer_poll_count = 0;
-                 timer_rcv_index++;
-            }
-        }
-        else //if (timer_rcv_index >= TIMER_RCV_BIT_LEN)
-        {
-            if (timer_decode())
-            {
+                stop_timera();
                 timer_state = flag;
             }
             else
-                start_timera_capture();
+            {
                 timer_state = idle;
+                start_timera_capture();
+            }
         }
         break;
     }
-    case flag:
-    {
-        stop_timera();
-        break;
-    }
-    case off:
-        break;
     default:
     {
-        //TODO:
-        timera_init();
-        start_timera();
+        timer_state = idle;
+        start_timera_capture();
     }
     }
-
 }
 
 /*
