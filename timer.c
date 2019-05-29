@@ -9,8 +9,7 @@ void timera_init(void)
     //system clock initialization moved to init_clk();
     //set timer overflow register here;
     TACCR0 = 0xFFFF;
-    TACCTL0 = CM_0 | CCIS_0;
-    TACCTL1 = CM_1 | CCIS_0 | SCS | CAP | OUTMOD_0;
+    TACCTL0 = CM_1 | CCIS_0 | SCS | CAP | OUTMOD_0;
 
     timer_state = off;
     timer_rcv_periods = 0;
@@ -18,37 +17,18 @@ void timera_init(void)
 void start_timera()
 {
     timer_state = idle;
-    start_timera_capture();
-}
-void start_timera_capture()
-{
-    //ENABLE cap interrupt and DISABLE ovf, cont mode
-    TACTL &= ~(TAIE);
-    TACCTL1 |= CCIE;
-    TACTL |= TACLR | MC_2;
-}
-void start_timera_capturecompare(unsigned int period)
-{
-    //ENABLE cap and ovf, up mode
-    TACCR0 = period;
-    TACCTL1 |= CCIE;
-    TACTL |= TACLR | TAIE | MC_1;
-}
-void start_timera_compare(unsigned int period)
-{
-    //enable ovf and DISABLE cap, up mode
-    TACCTL1 &= ~(CCIE);
-    TACCR0 = period;
-    TACTL |= TACLR | TAIE | MC_1;
+    TACTL = MC_0 | TACLR;
+    //rising, CCIxA, sync, capture, interrupt
+    TACCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
+    TACTL = TASSEL_2 | ID_0 | MC_2 | TACLR;
 }
 
-//TODO:replace with timera_init
 void stop_timera(void)
 {
     timer_state = off;
-    TACTL = TASSEL_2 | ID_0 | MC_0 | TACLR | TAIE;
+    TACTL = TASSEL_2 | ID_0 | MC_0 | TACLR;
     TACCTL0 &= ~(CCIE);
-    TACCTL1 &= ~(CCIE);
+    //TACCTL1 &= ~(CCIE);
 }
 
 void timer_push(unsigned int signal)
@@ -67,12 +47,12 @@ void timer_push(unsigned int signal)
          if (signal)
          {
              timer_rcv_buffer[timer_rcv_index]++;
-             P1OUT |= GPIO_RF_ACTIVITY_LED;
+             turn_on_p1_led(GPIO_RF_ACTIVITY_LED);
              toggle_led_index++;
          }
          else if (!signal)
          {
-             P1OUT &= ~(GPIO_RF_ACTIVITY_LED);
+             turn_off_p1_led(GPIO_RF_ACTIVITY_LED);
              toggle_led_index++;
          }
     }
@@ -140,10 +120,9 @@ int timer_decode()
 }
 unsigned long timer_get_transmission()
 {
-    timer_rcv_periods = 0;
-    timer_state = idle;
-    start_timera_capture();
-    return timer_rcv_transmission;
+    unsigned long result = timer_rcv_transmission;
+    start_timera();
+    return result;
 }
 
 

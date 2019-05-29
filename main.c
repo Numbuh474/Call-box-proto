@@ -36,7 +36,6 @@ int main(void)
 
   //start program
   run_program();
-  
 }
 
 void run_program(void)
@@ -152,13 +151,6 @@ void setup_pins(void)
 
 void init_globals(void)
 {
-    //new_cap=0;
-    //old_cap=0;
-    //cap_diff=0;
-    
-    //decode_array_head = 0;
-    //decode_last_timestamp = 0;
-    //decode_data_available = 0;
     toggle_led_index = 0;
     p2_gpio_int_state = 0;
     program_mode_active = 0;
@@ -166,211 +158,10 @@ void init_globals(void)
     button_1_programmed = 0;
     program_button_active = 0;
     program_button_target = 0;
-
-    //message_length = 0;
     flash_data_struct_t button_id_list = {0};
     struct Queue id_queue = {0};
 
 }
-/*
-unsigned long call_button_received(void)
-{
-    unsigned long data_received = 0;
-    
-    if( decode_data_available > 0)
-    {
-        data_received = get_call_button_id();
-        decode_data_available = 0;
-        reset_decoder();
-    }
-    return data_received;
-}*/
-/*
-unsigned int add_decode_transition(unsigned int new_timestamp)
-{
-    unsigned int stop_timer = 0;
-    if((new_timestamp >= 275) && (new_timestamp <= 10500))
-    {
-        if(decode_array_head >= DECODE_ARRAY_SIZE)
-        {
-            decode_array_head = 0;
-        }
-        else
-        {
-            decode_array[decode_array_head] = new_timestamp;
-            decode_array_head++;
-        }
-        if(decode_array_head == MINIMUM_DECODE_DELTA*3)
-        {
-            decode_data_available = 1;
-            CCTL0 &= ~(CCIE);
-            stop_timer = 1;
-        }
-    }
-    return stop_timer;
-    
-}*/
-/*
-unsigned long get_call_button_id(void)
-{
-    unsigned int current_head = decode_array_head;
-    unsigned int i = 0;
-    unsigned long button_id = 0;
-    unsigned int button_bits_added = 0;
-    
-    unsigned int ret_bit = 0;
-    unsigned int start_bit_found = 0;
-    
-    if(current_head >= 48)
-    {
-        //get button id
-        while((i < current_head) && (i < 199))
-        {
-            ret_bit = get_next_decoded_bit(i);
-            if((start_bit_found == 0) && (ret_bit == 0x02)) //found start bit
-            {
-                start_bit_found = 1;
-                i++;
-            }
-            else if((start_bit_found == 1) && (ret_bit == 0x02)) //new start bit, reset number
-            {
-                button_id = 0;
-                button_bits_added = 0;
-                i++;
-            }
-            else if((button_bits_added < 24) && (ret_bit != 0xFF)) //a valid bit found
-            {
-                button_id = button_id << 1;
-                button_id |= (0x0001 & ret_bit);
-                button_bits_added++;
-                i += 2;
-            }
-            else
-            {
-                i++;
-            }
-            if(button_bits_added == 24)
-            {
-                //found all bits, break
-                break;
-            }
-        }
-    }
-    return button_id;
-}*/
-/*
-unsigned long get_multiple_call_button_ids(unsigned int num_of_ids)
-{
-    unsigned int current_head = decode_array_head;
-    unsigned int i = 0;
-    unsigned long button_id = 0;
-    unsigned long button_id_1 = 0;
-    unsigned long button_id_2 = 0;
-    unsigned long button_id_3 = 0;
-    unsigned int button_bits_added = 0;
-    unsigned int button_count = 0;
-    
-    unsigned int ret_bit = 0;
-    unsigned int start_bit_found = 0;
-    
-    if(current_head >= (num_of_ids*MINIMUM_DECODE_DELTA))
-    {
-        while(button_count < num_of_ids)
-        {
-            //get button id
-            while((i < current_head) && (i < DECODE_ARRAY_SIZE-1))
-            {
-                ret_bit = get_next_decoded_bit(i);
-                if((start_bit_found == 0) && (ret_bit == 0x02)) //found start bit
-                {
-                    start_bit_found = 1;
-                    i++;
-                }
-                else if((start_bit_found == 1) && (ret_bit == 0x02)) //new start bit, reset number
-                {
-                    button_id = 0;
-                    button_bits_added = 0;
-                    i++;
-                }
-                else if((button_bits_added < 24) && (ret_bit != 0xFF)) //a valid bit found
-                {
-                    button_id = button_id << 1;
-                    button_id |= (0x0001 & ret_bit);
-                    button_bits_added++;
-                    i += 2;
-                }
-                else
-                {
-                    i++;
-                }
-                if(button_bits_added == 24)
-                {
-                    //found all bits, break
-                    break;
-                }
-            }
-            
-            if(button_count == 0)
-            {
-                button_id_1 = button_id;
-            }
-            else if(button_count == 1)
-            {
-                button_id_2 = button_id;
-            }
-            else if(button_count == 2)
-            {
-                button_id_3 = button_id;
-            }
-        
-            button_count++;
-        }
-        if(!((button_id_1 == button_id_2) && ((button_id_1 == button_id_3))))
-        {
-            button_id = 0;
-        }
-    }
-    return button_id;
-}*/
-/*
-void reset_decoder(void)
-{
-    unsigned int i;
-    
-    for(i=0; i<DECODE_ARRAY_SIZE; i++)
-    {
-        decode_array[i] = 0;
-    }
-    decode_array_head = 0;
-    decode_last_timestamp = 0;
-    decode_data_available = 0;
-    
-}*/
-/*
-unsigned int get_next_decoded_bit(unsigned int decode_index)
-{
-    unsigned int ret_bit = 0xFF;
-    if((decode_array[decode_index] >= 9900) && (decode_array[decode_index] <= 10300))
-    {
-        ret_bit = 0x2;
-    }
-    else if((decode_array[decode_index] >= 260) && (decode_array[decode_index] <= 450))
-    {
-        if((decode_array[decode_index+1] >= 850) && (decode_array[decode_index+1] <= 1300))
-        {
-            ret_bit = 0;
-        }
-    }
-    else if((decode_array[decode_index] >= 850) && (decode_array[decode_index] <= 1300))
-    {
-        if((decode_array[decode_index+1] >= 250) && (decode_array[decode_index+1] <= 480))
-        {
-            ret_bit = 1;
-        }
-    }
-    return ret_bit;
-}*/
-
 void play_audio(unsigned int audio_channel)
 {
     unsigned int audio_gpio = 0xFF;
@@ -529,45 +320,6 @@ int add_button_id(unsigned long new_button, unsigned int index)
     return 0;
 }
 
-/*void handle_receiver_inputs(void)
-{
-    unsigned long data_received = 0;
-    //unsigned int audio_channel = AUDIO_CHANNEL_NONE;
-
-    if( (decode_data_available > 0) && (program_button_active == 0))
-    {
-        stop_timera();
-        data_received = call_button_received();
-        
-        if( data_received > 0)
-        {
-            //turn_on_p1_led(GPIO_RF_ACTIVITY_LED);
-            add_to_queue(data_received);
-            //audio_channel = get_audio_channel(data_received);
-            //play_audio(audio_channel);
-            //if(audio_channel != AUDIO_CHANNEL_NONE)
-
-        }
-        start_timera();
-    }
-    else if((decode_data_available > 0) && (program_button_active))
-    {
-        stop_timera();
-        data_received = get_multiple_call_button_ids(3);
-        reset_decoder();
-        if(data_received > 0)
-        {
-            add_button_id(data_received,program_button_target);
-            program_button_active = 0;
-            button_1_programmed = 600;
-        }
-        else
-        {
-            start_timera();
-        }
-    }
-    turn_off_p1_led(GPIO_RF_ACTIVITY_LED);
-}*/
 void handle_receiver_inputs_alt(void)
 {
     unsigned long data_received = 0;
@@ -588,135 +340,7 @@ void handle_receiver_inputs_alt(void)
         }
     }
 }
-/*
-void handle_user_inputs(void)
-{
-    unsigned int p2_gpio_cur_state = P2IN;
-    unsigned int p2_gpio_debounce_state = 0;
-    unsigned int prog_button_pressed = 0;
-    unsigned int prog_button_released = 0;
-    unsigned int prog_button_1_pressed = 0;
-    unsigned int prog_button_1_released = 0;
-    unsigned int prog_button_debounce_count = 0;
-    unsigned int prog_button_1_debounce_count = 0;
-    unsigned int prog_buttons_erase_pressed = 0;
-    unsigned int prog_buttons_erase_released = 0;
-    unsigned int prog_buttons_erase_debounce_count = 0;
-    unsigned int prog_buttons_1_rec_pressed = 0;
-    unsigned int prog_buttons_1_rec_debounce_count = 0;
-    p2_gpio_int_state = 0;
-    //TODO: move debounce to timer and check for button release
-    //debounce
-    inline_delay(0x300);
 
-    p2_gpio_debounce_state = p2_gpio_cur_state & P2IN;
-
-    prog_button_pressed = p2_gpio_debounce_state & GPIO_PROGRAM_BUTTON;
-    prog_button_1_pressed = p2_gpio_debounce_state & GPIO_PROGRAM_BUTTON_1;
-    prog_buttons_erase_pressed = p2_gpio_debounce_state & GPIO_ERASE_BUTTONS;
-    prog_buttons_1_rec_pressed = p2_gpio_debounce_state & GPIO_CHAN1_REC_BUTTON;
-
-    if(prog_button_pressed || prog_button_1_pressed || prog_buttons_erase_pressed || prog_buttons_1_rec_pressed)
-    {
-        prog_button_debounce_count = 3;
-        prog_button_1_debounce_count = 3;
-        prog_buttons_erase_debounce_count = 3;
-        prog_buttons_1_rec_debounce_count = 3;
-
-        if((program_mode_active == 1) && (prog_buttons_1_rec_pressed > 0))
-        {
-            turn_on_p1_led(GPIO_RF_ACTIVITY_LED);
-            set_gpio_p1_high(GPIO_AUDIO_REC1_ENABLE);
-        }
-        //wait for the release
-        while((prog_button_pressed && (prog_button_debounce_count > 0))   ||
-              (prog_button_1_pressed && (prog_button_1_debounce_count>0)) ||
-              (prog_buttons_erase_pressed && (prog_buttons_erase_debounce_count>0)) ||
-              (prog_buttons_1_rec_pressed && (prog_buttons_1_rec_debounce_count>0)))
-        {
-            inline_delay(0x30);
-            if(prog_button_pressed && ((P2IN & GPIO_PROGRAM_BUTTON) == 0))
-            {
-                prog_button_debounce_count--;
-            }
-            if(prog_button_1_pressed && ((P2IN & GPIO_PROGRAM_BUTTON_1) == 0))
-            {
-                prog_button_1_debounce_count--;
-            }
-            if(prog_buttons_erase_pressed && ((P2IN & GPIO_ERASE_BUTTONS) == 0))
-            {
-                prog_buttons_erase_debounce_count--;
-            }
-            if(prog_buttons_1_rec_pressed && ((P2IN & GPIO_CHAN1_REC_BUTTON) == 0))
-            {
-                prog_buttons_1_rec_debounce_count--;
-            }
-        }
-        if(prog_button_debounce_count == 0)
-        {
-            //program button was pressed and released
-            prog_button_released = 1;
-        }
-        if(prog_button_1_debounce_count == 0)
-        {
-            //program button 1 was pressed and released
-            prog_button_1_released = 1;
-        }
-        if(prog_buttons_erase_debounce_count == 0)
-        {
-            //erase button was pressed and released
-            prog_buttons_erase_released = 1;
-        }
-        if((program_mode_active == 1) && prog_buttons_erase_debounce_count)
-        {
-            set_gpio_p1_low(GPIO_AUDIO_REC1_ENABLE);
-            turn_off_p1_led(GPIO_RF_ACTIVITY_LED);
-        }
-    }
-
-    //check to see if program button is pressed and not in program mode
-    if( (program_mode_active == 0) && prog_button_released)
-    {
-        turn_on_p1_led(GPIO_STATUS_LED);
-        program_mode_active = 1;
-
-        //stop receiver
-        stop_timera();
-        turn_off_p1_led(GPIO_RF_ACTIVITY_LED);
-    }
-    else if( (program_mode_active == 1) && prog_button_released)
-    {
-        //exit program mode
-        //wait for release
-        turn_off_p1_led(GPIO_STATUS_LED);
-        program_mode_active = 0;
-        program_button_active = 0;
-
-        reset_decoder();
-        //start timer
-        start_timera();
-    }
-    else if((program_button_active == 0) && (program_mode_active == 1) && prog_button_1_released)
-    {
-        program_button_active = 1;
-        program_button_target = 0;
-        reset_decoder();
-        //start timer
-        start_timera_capture();
-    }
-    else if((program_button_active == 0) && (program_mode_active == 1) && prog_buttons_erase_released)
-    {
-        turn_on_p1_led(GPIO_RF_ACTIVITY_LED);
-        erase_button_ids();
-        inline_delay(0x800);
-        turn_off_p1_led(GPIO_RF_ACTIVITY_LED);
-    }
-
-    //TODO: add interrupt support for buttons
-    //clear interrupts
-    //P2IE |= (GPIO_PROGRAM_BUTTON);
-    //P2IFG &= ~(GPIO_PROGRAM_BUTTON);
-}*/
 void handle_user_inputs_alt(void)
 {
     unsigned int p2_gpio_cur_state = P2IN;
@@ -951,100 +575,79 @@ void play_from_queue()
 
 
 //interrupts
-//TAOVF and CCR1
-#pragma vector = TIMER0_A1_VECTOR
-__interrupt void TimerA1(void)
+//TACCR0
+#pragma vector = TIMER0_A0_VECTOR
+__interrupt void TimerA0(void)
 {
-    unsigned int flags = TAIV;
     switch (timer_state)
     {
     case idle:
     {
-        if (flags==TA0IV_TACCR1)
-        {
-            timer_state = syn;
-            start_timera_capturecompare(TIMER_SYN_MAX_LEN);
-        }
+        timer_state = syn;
+        TACTL = MC_0 | TACLR;
+        TACCR0 = TIMER_SYN_MAX_LEN;
+        //rising edge, CCIxA, sync, capture, interrupt
+        TACCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
+        TACTL = TASSEL_2 | ID_0 | MC_1 | TACLR;
         break;
     }
     case syn:
     {
-        if ((flags==TA0IV_TAIFG) || TACCR1 < TIMER_SYN_MIN_LEN)
-        {
-            timer_state = idle;
-            start_timera_capture();
-        }
-        else //if ((flags & TA0IV_TACCR1) && TACCR1 >= TIMER_SYN_MIN_LEN)
+        timer_poll_rate  = TACCR0;
+        if (timer_poll_rate >= TIMER_SYN_MIN_LEN && !(TACCTL0 & COV))
         {
             timer_state = read;
-            timer_poll_rate = TACCR1 / 64;
-            timer_poll_count = 0;
+            TACTL = MC_0 | TACLR;
+            TACCR0 = timer_poll_rate / 64;
+            //no capture, CCIxA, sync, compare, interrupt
+            TACCTL0 = CM_0 | CCIS_0 | SCS |/*| CAP |*/ CCIE;
+            TACTL = TASSEL_2 | ID_0 | MC_1 | TACLR;
+
             timer_rcv_index = 0;
-            start_timera_compare(timer_poll_rate);
+            timer_poll_count = 0;
+        }
+        else
+        {
+            timer_state = idle;
+            TACTL = MC_0 | TACLR;
+            //rising, CCIxA, sync, capture, interrupt
+            TACCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
+            TACTL = TASSEL_2 | ID_0 | MC_2 | TACLR;
         }
         break;
     }
     case read:
     {
-        //if (flags & TA0IV_TAIFG)
-        if(timer_rcv_index < TIMER_RCV_BIT_LEN)
+        if (timer_rcv_index < TIMER_RCV_BIT_LEN)
             timer_push();
+        else if (timer_decode())
+            timer_state = flag;
         else
         {
-            if(timer_decode())
-            {
-                stop_timera();
-                timer_state = flag;
-            }
-            else
-            {
-                timer_state = idle;
-                start_timera_capture();
-            }
+            timer_state = idle;
+            TACTL = MC_0 | TACLR;
+            //rising, CCIxA, sync, capture, interrupt
+            TACCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
+            TACTL = TASSEL_2 | ID_0 | MC_2 | TACLR;
         }
+        break;
+    }
+    case flag:
+    {
+        TACTL = MC_0 | TACLR;
+        TACCTL0 = CM_1 | CCIS_0 | SCS | CAP;
         break;
     }
     default:
     {
         timer_state = idle;
-        start_timera_capture();
+        TACTL = MC_0 | TACLR;
+        //rising, CCIxA, sync, capture, interrupt
+        TACCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
+        TACTL = TASSEL_2 | ID_0 | MC_2 | TACLR;
     }
     }
 }
-
-/*
-#pragma vector = TIMER0_A1_VECTOR
-__interrupt void TimerA1(void)
-{
-    new_cap = TACCR0;
-    if(new_cap >= old_cap)
-    {
-        cap_diff = new_cap - old_cap;
-    }
-    else
-    {
-        cap_diff = (0xFFFF-old_cap) + new_cap;
-    }
-
-    if(((program_mode_active == 0) || (program_button_active == 1))  && (add_decode_transition(cap_diff) == 1))
-    {
-        //disable interrupt
-        CCTL0 &= ~(CCIE);
-        //TODO: enable interrupt operation
-        //LPM0_EXIT;
-    }
-
-    if (toggle_led_index == MINIMUM_DECODE_DELTA)
-    {
-        toggle_led_index = 0;
-        P1OUT ^= GPIO_RF_ACTIVITY_LED;  // Toggle P1.0 using exclusive-OR
-        __no_operation();
-    }
-    toggle_led_index++;
-    old_cap = new_cap;                       // store this capture value
-}
-*/
-
 
 // //Port 2 interrupt service routine
 // #pragma vector = PORT2_VECTOR
