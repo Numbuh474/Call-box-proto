@@ -565,7 +565,7 @@ void play_from_queue()
         turn_on_p1_led(GPIO_RF_ACTIVITY_LED);
         audio_channel = get_audio_channel(queue_dequeue(&id_queue));
         play_audio(audio_channel);
-        timer = 1000000;
+        timer = 100000;
     }
     else if(timer > 0)
     {
@@ -574,7 +574,25 @@ void play_from_queue()
 }
 
 
+
 //interrupts
+#pragma vector = TIMER0_A1_VECTOR
+__interrupt void TimerA1(void)
+{
+    switch (timer_state)
+    {
+    default:
+    {
+        timer_state = idle;
+        TACTL = MC_0 | TACLR;
+        //rising, CCIxA, sync, capture, interrupt
+        TACCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
+        TACTL = TASSEL_2 | ID_0 | MC_2;
+        break;
+    }
+    }
+}
+
 //TACCR0
 #pragma vector = TIMER0_A0_VECTOR
 __interrupt void TimerA0(void)
@@ -583,59 +601,54 @@ __interrupt void TimerA0(void)
     {
     case idle:
     {
+        TACTL = TASSEL_2 | ID_0 | MC_1 | TAIE | TACLR;
         timer_state = syn;
-        TACTL = MC_0 | TACLR;
         TACCR0 = TIMER_SYN_MAX_LEN;
         //rising edge, CCIxA, sync, capture, interrupt
         TACCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
-        TACTL = TASSEL_2 | ID_0 | MC_1 | TACLR;
+        turn_off_p1_led(GPIO_RF_ACTIVITY_LED);
         break;
     }
     case syn:
     {
         timer_poll_rate  = TACCR0;
-        if (timer_poll_rate >= TIMER_SYN_MIN_LEN && !(TACCTL0 & COV))
+        if (timer_poll_rate >= TIMER_SYN_MIN_LEN)
         {
+            TACTL = TASSEL_2 | ID_0 | MC_1 | TACLR;
             timer_state = read;
-            TACTL = MC_0 | TACLR;
-            TACCR0 = timer_poll_rate / 64;
+            TACCR0 = timer_poll_rate >> 6;
             //no capture, CCIxA, sync, compare, interrupt
             TACCTL0 = CM_0 | CCIS_0 | SCS |/*| CAP |*/ CCIE;
-            TACTL = TASSEL_2 | ID_0 | MC_1 | TACLR;
-
             timer_rcv_index = 0;
             timer_poll_count = 0;
         }
         else
         {
             timer_state = idle;
-            TACTL = MC_0 | TACLR;
             //rising, CCIxA, sync, capture, interrupt
             TACCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
-            TACTL = TASSEL_2 | ID_0 | MC_2 | TACLR;
+            TACTL = TASSEL_2 | ID_0 | MC_2;
         }
         break;
     }
     case read:
     {
         if (timer_rcv_index < TIMER_RCV_BIT_LEN)
-            timer_push();
+            timer_push(TACCTL0 & SCCI);
         else if (timer_decode())
             timer_state = flag;
         else
         {
             timer_state = idle;
-            TACTL = MC_0 | TACLR;
             //rising, CCIxA, sync, capture, interrupt
             TACCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
-            TACTL = TASSEL_2 | ID_0 | MC_2 | TACLR;
+            TACTL = TASSEL_2 | ID_0 | MC_2;
         }
         break;
     }
     case flag:
     {
         TACTL = MC_0 | TACLR;
-        TACCTL0 = CM_1 | CCIS_0 | SCS | CAP;
         break;
     }
     default:

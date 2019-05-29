@@ -20,13 +20,13 @@ void start_timera()
     TACTL = MC_0 | TACLR;
     //rising, CCIxA, sync, capture, interrupt
     TACCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
-    TACTL = TASSEL_2 | ID_0 | MC_2 | TACLR;
+    TACTL = TASSEL_2 | ID_0 | MC_2;
 }
 
 void stop_timera(void)
 {
     timer_state = off;
-    TACTL = TASSEL_2 | ID_0 | MC_0 | TACLR;
+    TACTL = MC_0 | TACLR;
     TACCTL0 &= ~(CCIE);
     //TACCTL1 &= ~(CCIE);
 }
