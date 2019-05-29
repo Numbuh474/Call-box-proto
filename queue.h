@@ -1,7 +1,3 @@
-//button 1 m:   340708
-//button 1 s:   A03811
-//button 2 m:   EF877A
-//button 2 s:   877A41
 #ifndef QUEUE_H_
 #define QUEUE_H_
 

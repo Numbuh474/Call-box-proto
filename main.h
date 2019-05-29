@@ -33,25 +33,23 @@
 #define GPIO_ERASE_BUTTONS       BIT2  //P2.2
 #define GPIO_CHAN1_REC_BUTTON    BIT4  //P2.4
 
-volatile unsigned int new_cap=0;
-volatile unsigned int old_cap=0;
-volatile unsigned int cap_diff=0;
-unsigned int decode_array[DECODE_ARRAY_SIZE] = {0};
-unsigned int decode_array_head = 0;
-unsigned int decode_last_timestamp = 0;
-unsigned int decode_data_available = 0;
-unsigned int toggle_led_index = 0;
-unsigned int p2_gpio_int_state = 0;
-unsigned int program_mode_active = 0;
-unsigned int program_button_active = 0;
-unsigned int program_button_target = 0;
+volatile unsigned int new_cap;
+volatile unsigned int old_cap;
+volatile unsigned int cap_diff;
+unsigned int decode_array[DECODE_ARRAY_SIZE];
+unsigned int decode_array_head;
+unsigned int decode_last_timestamp;
+unsigned int decode_data_available;
+unsigned int toggle_led_index;
+unsigned int p2_gpio_int_state;
+unsigned int program_mode_active;
+unsigned int program_button_active;
+unsigned int program_button_target;
 
-unsigned int button_1_programmed = 0;
+unsigned int button_1_programmed;
 
-unsigned int message_length = 0;
-
-flash_data_struct_t button_id_list = {0};
-struct Queue id_queue = {0};
+flash_data_struct_t button_id_list;
+struct Queue id_queue;
 queue_t id_queue_array [8];
 
 

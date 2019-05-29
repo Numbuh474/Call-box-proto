@@ -144,6 +144,10 @@ void init_globals(void)
     program_mode_active = 0;
     program_button_active = 0;
     button_1_programmed = 0;
+    program_button_target = 0;
+
+    flash_data_struct_t button_id_list = {0};
+    struct Queue id_queue = {0};
 }
 
 unsigned long call_button_received(void)
