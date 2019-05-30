@@ -13,6 +13,7 @@ typedef enum
     off,
     idle,
     syn,
+    step,
     read,
     flag
 } timer_state_t;
@@ -31,6 +32,7 @@ unsigned long timer_rcv_transmission;
 
 timer_state_t timer_state;
 unsigned int timer_poll_rate; // pulse width/2
+unsigned int timer_poll_mod;
 unsigned int timer_poll_count;
 unsigned int timer_rcv_periods;
 unsigned int timer_rcv_index;

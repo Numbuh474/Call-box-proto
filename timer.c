@@ -17,7 +17,6 @@ void timera_init(void)
 void start_timera()
 {
     timer_state = idle;
-    TACTL = MC_0 | TACLR;
     //rising, CCIxA, sync, capture, interrupt
     TACCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
     TACTL = TASSEL_2 | ID_0 | MC_2;
@@ -38,26 +37,22 @@ void timer_push(unsigned int signal)
     {
         timer_rcv_buffer[timer_rcv_index]= error;
     }
-    //check on every even poll (middle of the pulse)
-    if( timer_poll_count%2==0 )
+    timer_rcv_buffer[timer_rcv_index] =
+         timer_rcv_buffer[timer_rcv_index] << 1;
+    //if signal is true, push set bit. else push clear bit
+    if (signal)
     {
-         timer_rcv_buffer[timer_rcv_index] =
-                 timer_rcv_buffer[timer_rcv_index] << 1;
-         //if signal is true, push set bit. else push clear bit
-         if (signal)
-         {
-             timer_rcv_buffer[timer_rcv_index]++;
-             turn_on_p1_led(GPIO_RF_ACTIVITY_LED);
-             toggle_led_index++;
-         }
-         else if (!signal)
-         {
-             turn_off_p1_led(GPIO_RF_ACTIVITY_LED);
-             toggle_led_index++;
-         }
+     timer_rcv_buffer[timer_rcv_index]++;
+     turn_on_p1_led(GPIO_RF_ACTIVITY_LED);
+     toggle_led_index++;
     }
-    //roll poll count over and advance index on 7.
-    if (timer_poll_count>=7)
+    else//if (!signal)
+    {
+     turn_off_p1_led(GPIO_RF_ACTIVITY_LED);
+     toggle_led_index++;
+    }
+
+    if (timer_poll_count>=3)
     {
          timer_poll_count = 0;
          timer_rcv_index++;
@@ -66,8 +61,6 @@ void timer_push(unsigned int signal)
     {
         timer_poll_count++;
     }
-
-     //if(!(signal) & timer_poll_count%2==1)//noop
 }
 
 int timer_decode()
@@ -111,7 +104,11 @@ int timer_decode()
             timer_rcv_transmission = (timer_rcv_transmission << 1) + 1;
         else//if (timer_rcv_decode[i] != zero && timer_rcv_decode[i] != one)
         {
-            timer_rcv_periods = (timer_rcv_periods+1)%3;
+            timer_rcv_periods++;
+            if (timer_rcv_periods >= TIMER_RCV_TELEGRAM)
+            {
+                timer_rcv_periods = 0;
+            }
             timer_rcv_transmission = BUTTON_ID_INVALID;
             return 0;
         }

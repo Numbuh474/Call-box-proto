@@ -103,14 +103,14 @@ void run_program(void)
 
 void init_clk()
 {
-    if (CALBC1_1MHZ != 0xFF)   //check for calibration constant
+    //if (CALBC1_1MHZ != 0xFF)   //check for calibration constant
     //constant definition in msp430xxx.h, should fail to compile if
     //microprocessor does not support
-    {
+    //{
         DCOCTL = 0;
         BCSCTL1 = CALBC1_1MHZ;
         DCOCTL  = CALDCO_1MHZ;
-    }
+   // }
 }
 
 void setup_pins(void)
@@ -584,7 +584,6 @@ __interrupt void TimerA1(void)
     default:
     {
         timer_state = idle;
-        TACTL = MC_0 | TACLR;
         //rising, CCIxA, sync, capture, interrupt
         TACCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
         TACTL = TASSEL_2 | ID_0 | MC_2;
@@ -615,12 +614,14 @@ __interrupt void TimerA0(void)
         if (timer_poll_rate >= TIMER_SYN_MIN_LEN)
         {
             TACTL = TASSEL_2 | ID_0 | MC_1 | TACLR;
-            timer_state = read;
-            TACCR0 = timer_poll_rate >> 6;
+            timer_poll_mod = timer_poll_rate % 32;
+            timer_poll_rate = timer_poll_rate / 32;
+            TACCR0 = timer_poll_rate / 2;
             //no capture, CCIxA, sync, compare, interrupt
             TACCTL0 = CM_0 | CCIS_0 | SCS |/*| CAP |*/ CCIE;
             timer_rcv_index = 0;
             timer_poll_count = 0;
+            timer_state = step;
         }
         else
         {
@@ -629,12 +630,26 @@ __interrupt void TimerA0(void)
             TACCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
             TACTL = TASSEL_2 | ID_0 | MC_2;
         }
+        turn_off_p1_led(GPIO_RF_ACTIVITY_LED);
+        break;
+    }
+    case step:
+    {
+        timer_state = read;
+        TACCR0 = timer_poll_rate;
+        timer_push(TACCTL0 & SCCI);
         break;
     }
     case read:
     {
         if (timer_rcv_index < TIMER_RCV_BIT_LEN)
+        {
             timer_push(TACCTL0 & SCCI);
+            if ((timer_rcv_index % 16) >= (timer_poll_mod / 2))
+                TACCR0 = timer_poll_rate + 1;
+            else
+                TACCR0 = timer_poll_rate;
+        }
         else if (timer_decode())
             timer_state = flag;
         else
