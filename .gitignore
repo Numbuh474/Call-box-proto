@@ -53,12 +53,14 @@ dkms.conf
 
 # Misc
 *.prefs
-/*.pdf
 *.xml
 *.ccxml
 .ccsproject
 .cproject
 .project
 /*.cmd
+/.settings
+/.launches
 Debug/
+Release/
 /targetConfigs
