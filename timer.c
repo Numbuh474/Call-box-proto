@@ -66,7 +66,7 @@ void timer_push(unsigned int signal)
 
 int timer_decode()
 {
-    int i = 0, parity_fail = 0;
+    unsigned int i = 0, parity_fail = 0;
     timer_rcv_transmission = 0;
     for(i = 0; i<TIMER_RCV_BIT_LEN; i++)
     {
@@ -74,16 +74,17 @@ int timer_decode()
         //try parity check.
         if(timer_rcv_periods > 0)
         {
-            if(timer_rcv_decode[i]==zero )
-                if (timer_rcv_buffer[i]!=zero)
+            if(timer_rcv_buffer[i]==TIMER_RCV_ZERO )
+            {
+                if (timer_rcv_decode[i]!=TIMER_RCV_ZERO)
                     parity_fail = 1;
-            else if (timer_rcv_decode[i]==one)
-                if (timer_rcv_buffer[i]!=one)
+            }
+            else if (timer_rcv_buffer[i]==TIMER_RCV_ONE)
+            {
+                if (timer_rcv_decode[i]!=TIMER_RCV_ONE)
                     parity_fail = 1;
-            else//if (timer_rcv_decode==error or otherwise)
-                timer_rcv_decode[i]=timer_rcv_buffer[i];
+            }
         }
-        //if first data, copy info
         else//if(timer_rcv_periods==0)
             timer_rcv_decode[i]=timer_rcv_buffer[i];
         if (parity_fail)
@@ -99,11 +100,11 @@ int timer_decode()
     //if > 3 periods reset period count.
     for(i = 0; i<TIMER_RCV_BIT_LEN; i++)
     {
-        if (timer_rcv_decode[i]==zero)
+        if (timer_rcv_decode[i]==TIMER_RCV_ZERO)
             timer_rcv_transmission = (timer_rcv_transmission << 1);
-        else if (timer_rcv_decode[i]==one)
+        else if (timer_rcv_decode[i]==TIMER_RCV_ONE)
             timer_rcv_transmission = (timer_rcv_transmission << 1) + 1;
-        else//if (timer_rcv_decode[i] != zero && timer_rcv_decode[i] != one)
+        else//if (timer_rcv_decode[i] != TIMER_RCV_ZERO && timer_rcv_decode[i] != TIMER_RCV_ONE)
         {
             timer_rcv_periods++;
             if (timer_rcv_periods >= TIMER_RCV_TELEGRAM)

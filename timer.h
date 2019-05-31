@@ -9,6 +9,8 @@
 #define TIMER_RCV_TELEGRAM 3
 #define TIMER_HALF_STEP (timer_poll_rate>>3)
 #define TIMER_STEP (timer_poll_rate>>2)
+#define TIMER_RCV_ZERO    0b1000
+#define TIMER_RCV_ONE     0b1110
 
 typedef enum
 {
@@ -18,15 +20,9 @@ typedef enum
     read,
     flag
 } timer_state_t;
-typedef enum
-{
-    error = 0,
-    zero =  0b1000,
-    one =   0b1110,
-} rcv_bit_t;
 
-rcv_bit_t timer_rcv_decode [TIMER_RCV_BIT_LEN];
-rcv_bit_t timer_rcv_buffer [TIMER_RCV_BIT_LEN];
+char timer_rcv_decode [TIMER_RCV_BIT_LEN];
+char timer_rcv_buffer [TIMER_RCV_BIT_LEN];
 
 
 unsigned long timer_rcv_transmission;

@@ -352,7 +352,6 @@ void handle_user_inputs_alt(void)
     unsigned int prog_button_released[4];
     unsigned int prog_button_debounce_count[4];
     unsigned int prog_button_delta [4];
-    unsigned long audio_channel [4];
     unsigned int count = 0;
 
     static unsigned int button_counter = 0;
