@@ -34,4 +34,5 @@ unsigned char flash_write(char *data_ptr, unsigned int data_size, unsigned int o
 unsigned char flash_read(char *data_ret_ptr, unsigned int data_size, unsigned int offset);
 char flash_read_byte(unsigned int offset);
 
+
 #endif

@@ -3,7 +3,7 @@
 
 #ifndef QUEUE_T
 #define QUEUE_T
-typedef unsigned int queue_t;
+typedef unsigned long queue_t;
 #endif
 
 struct Queue

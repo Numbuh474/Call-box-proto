@@ -1,6 +1,5 @@
 #ifndef PINS_H_
 #define PINS_H_
-
 #include <msp430.h>
 
 void set_gpio_p1_high(unsigned int gpio_pin);
