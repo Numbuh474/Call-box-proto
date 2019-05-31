@@ -324,14 +324,15 @@ void handle_receiver_inputs_alt(void)
     unsigned long data_received = 0;
     if(timer_state==flag && program_button_active == 0)
     {
+        stop_timera();
         data_received = timer_rcv_transmission;
-        start_timera();
         add_to_queue(data_received);
+        start_timera();
     }
     else if (timer_state == flag && program_button_active)
     {
+        stop_timera();
         data_received = timer_rcv_transmission;
-        start_timera();
         if (data_received != BUTTON_ID_INVALID)
         {
             add_button_id(data_received, program_button_target);

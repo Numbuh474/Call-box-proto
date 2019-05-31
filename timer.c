@@ -114,5 +114,6 @@ int timer_decode()
             return 0;
         }
     }//for
+    timer_rcv_periods = 0;
     return 1;
 }
