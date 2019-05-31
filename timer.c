@@ -35,7 +35,7 @@ void timer_push(unsigned int signal)
     //clear index on new word
     if(timer_poll_count==0)
     {
-        timer_rcv_buffer[timer_rcv_index]= error;
+        timer_rcv_buffer[timer_rcv_index]= 0;
     }
     timer_rcv_buffer[timer_rcv_index] =
          timer_rcv_buffer[timer_rcv_index] << 1;
@@ -52,7 +52,7 @@ void timer_push(unsigned int signal)
      toggle_led_index++;
     }
 
-    if (timer_poll_count>=3)
+    if (timer_poll_count>=TIMER_RCV_TELEGRAM)
     {
          timer_poll_count = 0;
          timer_rcv_index++;

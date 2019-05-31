@@ -576,16 +576,52 @@ void play_from_queue()
 
 
 //interrupts
+//CCR1
 #pragma vector = TIMER0_A1_VECTOR
 __interrupt void TimerA1(void)
 {
+    unsigned int taiv = TAIV;
     switch (timer_state)
     {
+    case syn:
+    {
+        timer_state = idle;
+        //rising, CCIxA, sync, capture, interrupt
+        TACCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
+        TACCTL1 = CM_0 | CCIS_0 | SCS;
+        TACTL = TASSEL_2 | ID_0 | MC_2;
+        break;
+    }
+    case read:
+    {
+        if (timer_rcv_index < TIMER_RCV_BIT_LEN && (taiv && TA0IV_TACCR1))
+        {
+            timer_push(TACCTL0 & CCI);
+            TACCR1 +=TIMER_STEP;
+        }
+        else if (timer_decode() && timer_rcv_index >= TIMER_RCV_BIT_LEN)
+            timer_state = flag;
+        else
+        {
+            timer_state = idle;
+            //rising, CCIxA, sync, capture, interrupt
+            TACCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
+            TACCTL1 = CM_0 | CCIS_0 | SCS;
+            TACTL = TASSEL_2 | ID_0 | MC_2;
+        }
+        break;
+    }
+    case flag:
+    {
+        TACTL = MC_0 | TACLR;
+        break;
+    }
     default:
     {
         timer_state = idle;
         //rising, CCIxA, sync, capture, interrupt
         TACCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
+        TACCTL1 = CM_0 | CCIS_0 | SCS;
         TACTL = TASSEL_2 | ID_0 | MC_2;
         break;
     }
@@ -605,6 +641,7 @@ __interrupt void TimerA0(void)
         TACCR0 = TIMER_SYN_MAX_LEN;
         //rising edge, CCIxA, sync, capture, interrupt
         TACCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
+        TACCTL1 = CM_0 | CCIS_0 | SCS;
         turn_off_p1_led(GPIO_RF_ACTIVITY_LED);
         break;
     }
@@ -613,52 +650,34 @@ __interrupt void TimerA0(void)
         timer_poll_rate  = TACCR0;
         if (timer_poll_rate >= TIMER_SYN_MIN_LEN)
         {
-            TACTL = TASSEL_2 | ID_0 | MC_1 | TACLR;
-            timer_poll_mod = timer_poll_rate % 32;
-            timer_poll_rate = timer_poll_rate / 32;
-            TACCR0 = timer_poll_rate / 2;
+            TACTL = TASSEL_2 | ID_0 | MC_2 | TACLR | TAIE;
+            timer_poll_rate = timer_poll_rate >> 3;
+            TACCR1 = TIMER_HALF_STEP;
+            //rising, CCIxA, sync, capture, interrupt
+            TACCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
             //no capture, CCIxA, sync, compare, interrupt
-            TACCTL0 = CM_0 | CCIS_0 | SCS |/*| CAP |*/ CCIE;
+            TACCTL1 = CM_3 | CCIS_0 | SCS |/*| CAP |*/ CCIE;
             timer_rcv_index = 0;
             timer_poll_count = 0;
-            timer_state = step;
+            timer_state = read;
         }
         else
         {
             timer_state = idle;
             //rising, CCIxA, sync, capture, interrupt
             TACCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
+            TACCTL1 = CM_0 | CCIS_0 | SCS;
             TACTL = TASSEL_2 | ID_0 | MC_2;
         }
         turn_off_p1_led(GPIO_RF_ACTIVITY_LED);
         break;
     }
-    case step:
-    {
-        timer_state = read;
-        TACCR0 = timer_poll_rate;
-        timer_push(TACCTL0 & SCCI);
-        break;
-    }
     case read:
     {
-        if (timer_rcv_index < TIMER_RCV_BIT_LEN)
-        {
-            timer_push(TACCTL0 & SCCI);
-            if ((timer_rcv_index % 16) >= (timer_poll_mod / 2))
-                TACCR0 = timer_poll_rate + 1;
-            else
-                TACCR0 = timer_poll_rate;
-        }
-        else if (timer_decode())
-            timer_state = flag;
-        else
-        {
-            timer_state = idle;
-            //rising, CCIxA, sync, capture, interrupt
-            TACCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
-            TACTL = TASSEL_2 | ID_0 | MC_2;
-        }
+        timer_poll_rate = TACCR0;
+        TACCR0 = 0xffff;
+        TACTL |= TACLR;
+        TACCR1 = TIMER_HALF_STEP;
         break;
     }
     case flag:
@@ -666,6 +685,7 @@ __interrupt void TimerA0(void)
         TACTL = MC_0 | TACLR;
         break;
     }
+
     default:
     {
         timer_state = idle;

@@ -7,13 +7,14 @@
 #define TIMER_SYN_MIN_LEN (32*300)
 #define TIMER_RCV_BIT_LEN 24
 #define TIMER_RCV_TELEGRAM 3
+#define TIMER_HALF_STEP (timer_poll_rate>>3)
+#define TIMER_STEP (timer_poll_rate>>2)
 
 typedef enum
 {
     off,
     idle,
     syn,
-    step,
     read,
     flag
 } timer_state_t;
