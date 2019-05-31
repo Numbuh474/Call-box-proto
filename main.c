@@ -604,7 +604,7 @@ __interrupt void TimerA1(void)
         if (timer_rcv_index < TIMER_RCV_BIT_LEN && (taiv && TA0IV_TACCR1))
         {
             timer_push(TACCTL0 & CCI);
-            TACCR1 +=TIMER_STEP;
+            TACCR1 +=TIMER_PULSE;
         }
         else if (timer_decode() && timer_rcv_index >= TIMER_RCV_BIT_LEN)
             timer_state = flag;
@@ -654,12 +654,12 @@ __interrupt void TimerA0(void)
     }
     case syn:
     {
-        timer_poll_rate  = TACCR0;
-        if (timer_poll_rate >= TIMER_SYN_MIN_LEN)
+        timer_rcv_rate  = TACCR0;
+        if (timer_rcv_rate >= TIMER_SYN_MIN_LEN)
         {
             TACTL = TASSEL_2 | ID_0 | MC_2 | TACLR | TAIE;
-            timer_poll_rate = timer_poll_rate >> 3;
-            TACCR1 = TIMER_HALF_STEP;
+            timer_rcv_rate = timer_rcv_rate >> 3;
+            TACCR1 = TIMER_HALF_PULSE;
             //rising, CCIxA, sync, capture, interrupt
             TACCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
             //no capture, CCIxA, sync, compare, interrupt
@@ -681,10 +681,10 @@ __interrupt void TimerA0(void)
     }
     case read:
     {
-        timer_poll_rate = TACCR0;
+        timer_rcv_rate = TACCR0;
         TACCR0 = 0xffff;
         TACTL |= TACLR;
-        TACCR1 = TIMER_HALF_STEP;
+        TACCR1 = TIMER_HALF_PULSE;
         break;
     }
     case flag:
