@@ -34,7 +34,7 @@ queue_t queue_dequeue(struct Queue * queue)
 {
     if (queue->length > 0)
     {
-        unsigned int result = queue->array[queue->head];
+        queue_t result = queue->array[queue->head];
         queue->head = queue_wrap(queue, 1);
         queue->length--;
         return result;

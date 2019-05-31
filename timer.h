@@ -39,10 +39,9 @@ unsigned int timer_rcv_periods;
 unsigned int timer_rcv_index;
 
 void timera_init(void);
-void start_timera();
+inline void start_timera();
 void stop_timera();
 
-unsigned long timer_get_transmission();
 void timer_push();
 int timer_decode();
 

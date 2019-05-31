@@ -14,11 +14,12 @@ void timera_init(void)
     timer_state = off;
     timer_rcv_periods = 0;
 }
-void start_timera()
+inline void start_timera()
 {
     timer_state = idle;
     //rising, CCIxA, sync, capture, interrupt
     TACCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
+    TACCTL1 = CM_0 | CCIS_0 | SCS;
     TACTL = TASSEL_2 | ID_0 | MC_2;
 }
 
@@ -115,11 +116,3 @@ int timer_decode()
     }//for
     return 1;
 }
-unsigned long timer_get_transmission()
-{
-    unsigned long result = timer_rcv_transmission;
-    start_timera();
-    return result;
-}
-
-

@@ -76,7 +76,7 @@ void handle_user_inputs(void);
 void handle_user_inputs_alt(void);
 void init_globals(void);
 unsigned long get_multiple_call_button_ids(unsigned int num_of_ids);
-void add_to_queue();
+void add_to_queue(unsigned long button_id);
 void play_from_queue();
 
 

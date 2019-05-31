@@ -61,10 +61,8 @@ void run_program(void)
 	    //Handle receiver inputs
 	    handle_receiver_inputs_alt();
 	    
-	    if(!program_mode_active)
-	    {
+	    if(!program_button_active)
 	        play_from_queue();
-	    }
 	    
 	    if((program_button_active == 1) || button_1_programmed > 0)
 	    {
@@ -325,13 +323,14 @@ void handle_receiver_inputs_alt(void)
     unsigned long data_received = 0;
     if(timer_state==flag && program_button_active == 0)
     {
-        data_received = timer_get_transmission();
-        if(data_received!=BUTTON_ID_INVALID)
-            add_to_queue(data_received);
+        data_received = timer_rcv_transmission;
+        start_timera();
+        add_to_queue(data_received);
     }
     else if (timer_state == flag && program_button_active)
     {
-        data_received = timer_get_transmission();
+        data_received = timer_rcv_transmission;
+        start_timera();
         if (data_received != BUTTON_ID_INVALID)
         {
             add_button_id(data_received, program_button_target);
@@ -365,11 +364,6 @@ void handle_user_inputs_alt(void)
         prog_button_debounce_count[count] = 0;
         prog_button_delta[count] = 0;
     }
-
-    audio_channel[0] = get_audio_channel(button_id_list.button_id[0]);
-    audio_channel[1] = get_audio_channel(button_id_list.button_id[1]);
-    audio_channel[2] = get_audio_channel(button_id_list.button_id[2]);
-    audio_channel[3] = get_audio_channel(button_id_list.button_id[3]);
 
     inline_delay(0x300);
     
@@ -481,7 +475,8 @@ void handle_user_inputs_alt(void)
             //play audio
             if (program_mode_active == 0)
             {
-                play_audio(audio_channel[button_focus]);
+                //play_audio(audio_channel[button_focus]);
+                add_to_queue(button_id_list.button_id[button_focus]);
             }
             //disable program mode
             else
@@ -549,23 +544,27 @@ void handle_user_inputs_alt(void)
     }
 }
 
-void add_to_queue(unsigned int button_id)
+void add_to_queue(unsigned long button_id)
 {
-    queue_enqueue(&id_queue,button_id);
+    if (queue_index_of(&id_queue, button_id)<0)
+        queue_enqueue(&id_queue,button_id);
 }
 
 void play_from_queue()
 {
     //TODO:
     static unsigned long timer = 0;
+    static unsigned long button = 0;
+    static unsigned int audio_channel = 0;
 
     if (id_queue.length > 0 && timer==0)
     {
-        unsigned long audio_channel = 0;
-        turn_on_p1_led(GPIO_RF_ACTIVITY_LED);
-        audio_channel = get_audio_channel(queue_dequeue(&id_queue));
+        turn_on_p1_led(GPIO_STATUS_LED);
+        button = queue_dequeue(&id_queue);
+        audio_channel = get_audio_channel(button);
         play_audio(audio_channel);
-        timer = 100000;
+        turn_off_p1_led(GPIO_STATUS_LED);
+        timer = 200;
     }
     else if(timer > 0)
     {
@@ -692,6 +691,7 @@ __interrupt void TimerA0(void)
         TACTL = MC_0 | TACLR;
         //rising, CCIxA, sync, capture, interrupt
         TACCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
+        TACCTL1 = CM_0 | CCIS_0 | SCS;
         TACTL = TASSEL_2 | ID_0 | MC_2 | TACLR;
     }
     }
