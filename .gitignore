@@ -55,6 +55,7 @@ dkms.conf
 *.prefs
 *.xml
 *.ccxml
+*.launch
 .ccsproject
 .cproject
 .project
