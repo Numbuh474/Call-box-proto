@@ -53,6 +53,7 @@ void run_program(void)
     }*/
     __enable_interrupt(); // Enable Global Interrupts
     start_timera();
+    //add_to_queue(0);
     do
 	{
 	    //handle user programming inputs
@@ -554,21 +555,28 @@ void play_from_queue()
 {
     //TODO:
     static unsigned long timer = 0;
-    static unsigned long button = 0;
-    static unsigned int audio_channel = 0;
 
     if (id_queue.length > 0 && timer==0)
     {
-        turn_on_p1_led(GPIO_STATUS_LED);
-        button = queue_dequeue(&id_queue);
-        audio_channel = get_audio_channel(button);
-        play_audio(audio_channel);
-        turn_off_p1_led(GPIO_STATUS_LED);
-        timer = 200;
+        unsigned int audio_channel = get_audio_channel(queue_get(&id_queue,0));
+        if (audio_channel != AUDIO_CHANNEL_NONE)
+        {
+            play_audio(audio_channel);
+            timer = 150;
+        }
+        else
+            queue_dequeue(&id_queue);
     }
     else if(timer > 0)
     {
         timer--;
+        if (timer==0)
+        {
+            turn_on_p1_led(GPIO_STATUS_LED);
+            inline_delay(0x600);
+            turn_off_p1_led(GPIO_STATUS_LED);
+            queue_dequeue(&id_queue);
+        }
     }
 }
 

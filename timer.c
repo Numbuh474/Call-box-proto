@@ -68,7 +68,7 @@ int timer_decode()
 {
     int i = 0, parity_fail = 0;
     timer_rcv_transmission = 0;
-    for(i = 0; i<=TIMER_RCV_BIT_LEN; i++)
+    for(i = 0; i<TIMER_RCV_BIT_LEN; i++)
     {
         //if not new data, then old data is incomplete.
         //try parity check.
@@ -97,7 +97,7 @@ int timer_decode()
     //see if data returns valid.
     //if not, increment periods count
     //if > 3 periods reset period count.
-    for(i = 0; i<=TIMER_RCV_BIT_LEN; i++)
+    for(i = 0; i<TIMER_RCV_BIT_LEN; i++)
     {
         if (timer_rcv_decode[i]==zero)
             timer_rcv_transmission = (timer_rcv_transmission << 1);

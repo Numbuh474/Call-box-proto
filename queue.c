@@ -2,8 +2,11 @@
 
 unsigned int queue_wrap(struct Queue * queue, int offset)
 {
-    unsigned int result = (queue->head + offset + queue->capacity) % queue->capacity;
-    return result;
+    while (offset <= 0)
+        offset += queue->capacity;
+    while (queue->head + offset >= queue->capacity)
+        offset -= queue->capacity;
+    return queue->head + offset;
 }
 int queue_create(struct Queue* queue, queue_t * array, int capacity)
 {
@@ -22,8 +25,7 @@ int queue_enqueue(struct Queue * queue, queue_t value)
 {
     if(queue->length < queue->capacity)
     {
-        unsigned int tail = queue_wrap(queue, queue->length);
-        queue->array[tail] = value;
+        queue->array[queue_wrap(queue,queue->length)] = value;
         queue->length++;
         return 1;
     }
@@ -34,10 +36,10 @@ queue_t queue_dequeue(struct Queue * queue)
 {
     if (queue->length > 0)
     {
-        queue_t result = queue->array[queue->head];
+        unsigned int tmp_ptr = queue->head;
         queue->head = queue_wrap(queue, 1);
         queue->length--;
-        return result;
+        return queue->array[tmp_ptr];
     }
     else return 0;
 }
