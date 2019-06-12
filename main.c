@@ -161,6 +161,7 @@ void init_globals(void)
     program_button_target = 0;
     flash_data_struct_t button_id_list = {0};
     struct Queue id_queue = {0};
+    message_length = 0;
 
 }
 void play_audio(unsigned int audio_channel)
@@ -359,7 +360,8 @@ void handle_user_inputs_alt(void)
     unsigned int count = 0;
 
     static unsigned int button_counter = 0;
-    static unsigned int button_timer = 0;
+    //static unsigned int button_timer = 0;
+    static unsigned int button_timer_id = 0;
     static unsigned int button_focus = 0;
 
     for (count = 0; count< 4; count++)
@@ -416,7 +418,7 @@ void handle_user_inputs_alt(void)
             }
             for (count=0; count<4; count++)
             {
-                prog_button_delta[count] = timer_check(prog_button_timer_id);
+                prog_button_delta[count] = timer_check(prog_button_timer_id[count]);
                 if (prog_button_delta[0] > 2000 && button_counter == 0)
                 {
                     turn_on_p1_led(GPIO_RF_ACTIVITY_LED);
@@ -440,7 +442,7 @@ void handle_user_inputs_alt(void)
         }//while
         for (count=0; count<4; count++)
         {
-            timer_release(prog_button_timer_id[count]);
+            prog_button_delta[count] = timer_release(prog_button_timer_id[count]);
             if(prog_button_debounce_count[count] == 0)
                 {
                     //program button was pressed and released
@@ -462,14 +464,16 @@ void handle_user_inputs_alt(void)
                 button_counter++;
             }
             button_focus = count;
-            button_timer = 0;
+            //button_timer = 0;
+            button_timer_id = timer_begin();
             //disable recording if button 0 pressed once for 5000mut
             if (prog_button_delta[count] > 2000 )//&& button_counter == 1)
             {
                 set_gpio_p1_low(GPIO_AUDIO_REC1_ENABLE);
                 turn_off_p1_led(GPIO_RF_ACTIVITY_LED);
                 button_counter = 0;
-                button_timer = 0;
+                //button_timer = 0;
+                message_length = prog_button_delta[count]-2000;
             }
         }
     }
@@ -480,15 +484,18 @@ void handle_user_inputs_alt(void)
         //do nothing here
     }
     //checking for timeout at 50mut
-    else if (button_timer <= 50)
+    //else if (button_timer <= 50)
+    else if (timer_check(button_timer_id)<2000)
     {
         //no timeout
-        button_timer++;
+        //button_timer++;
     }
     //timeout occurred
     else //if (button_timer > 50)
     {
-        button_timer = 0;
+        //button_timer = 0;
+        timer_release(button_timer_id);
+        button_timer_id = 0;
 
         if (button_counter == 1)
         {
@@ -543,7 +550,8 @@ void handle_user_inputs_alt(void)
         //any other number of presses detected with timeout
         else
         {
-            button_timer = 0;
+            //button_timer = 0;
+            timer_release(button_timer_id);
             button_counter= 0;
         }
     }
@@ -572,31 +580,34 @@ void add_to_queue(unsigned long button_id)
 
 void play_from_queue()
 {
-    //TODO:
-    static unsigned long timer = 0;
+    //TODO:save message lengths to memory
+    static unsigned int flag = 1;
+    static int tid = 0;
+    unsigned int delay = message_length + 1000;
 
-    if (id_queue.length > 0 && timer==0)
+    if (id_queue.length > 0 && flag)
     {
         unsigned int audio_channel = get_audio_channel(queue_get(&id_queue,0));
         if (audio_channel != AUDIO_CHANNEL_NONE)
         {
             play_audio(audio_channel);
-            timer = 150;
+            flag = 0;
+            tid = timer_begin();
         }
         else
-            queue_dequeue(&id_queue);
-    }
-    else if(timer > 0)
-    {
-        timer--;
-        if (timer==0)
         {
-            turn_on_p1_led(GPIO_STATUS_LED);
-            //inline_delay(0x600);
-            timer_delay(0x600);
-            turn_off_p1_led(GPIO_STATUS_LED);
             queue_dequeue(&id_queue);
+            flag = 1;
         }
+    }
+    else if (timer_check(tid) > delay)
+    {
+        flag++;
+        timer_release(tid);
+        turn_on_p1_led(GPIO_STATUS_LED);
+        timer_delay(500);
+        turn_off_p1_led(GPIO_STATUS_LED);
+        queue_dequeue(&id_queue);
     }
 }
 
