@@ -11,7 +11,7 @@
 #define TIMER_PULSE (timer_rcv_rate>>2)
 #define TIMER_RCV_ZERO    0b1000
 #define TIMER_RCV_ONE     0b1110
-#define TIMER_RESOURCE    16
+#define TIMER_RESOURCE    8
 
 typedef enum
 {
@@ -24,7 +24,6 @@ typedef enum
 
 char timer_rcv_decode [TIMER_RCV_BIT_LEN];
 char timer_rcv_buffer [TIMER_RCV_BIT_LEN];
-unsigned int timer_usec;
 unsigned int timer_msec [TIMER_RESOURCE];
 
 unsigned long timer_rcv_transmission;

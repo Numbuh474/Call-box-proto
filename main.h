@@ -17,9 +17,9 @@
 //TODO: allow for multiple audio channels
 #define AUDIO_CHANNEL_NONE 0
 #define AUDIO_CHANNEL_1 1
-#define AUDIO_CHANNEL_2 2
-#define AUDIO_CHANNEL_3 3
-#define AUDIO_CHANNEL_4 4
+#define AUDIO_CHANNEL_2 1
+#define AUDIO_CHANNEL_3 1
+#define AUDIO_CHANNEL_4 1
 #define AUDIO_CHANNEL_TOTAL 4
 #define BUTTON_ID_INVALID 0xFF000000
 

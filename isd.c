@@ -1,3 +1,4 @@
+/*
 unsigned char isd_rx [7];
 
 typedef struct
@@ -50,3 +51,4 @@ int transmit(isd_cmd_t* command, unsigned int data, unsigned int addr)
     }
     //set ss high
 }
+*/

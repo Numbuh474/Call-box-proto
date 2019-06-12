@@ -82,7 +82,7 @@ void run_program(void)
 	    if(button_1_programmed > 0)
 	    {
 	        //inline_delay(0x80);
-	        timer_delay(80);
+	        timer_delay(0x80);
 	        button_1_programmed--;
 	        if(button_1_programmed == 0)
 	        {
@@ -93,7 +93,7 @@ void run_program(void)
 	    else
 	    {
 	        //inline_delay(0x500);
-	        timer_delay(500);
+	        timer_delay(0x500);
 	    }
 
 	    //TODO: add support for power savings
@@ -177,7 +177,7 @@ void play_audio(unsigned int audio_channel)
         set_gpio_p1_high(audio_gpio);
 
         //inline_delay(0x300);
-        timer_delay(300);
+        timer_delay(0x300);
 
         set_gpio_p1_low(audio_gpio);
     }
@@ -372,7 +372,7 @@ void handle_user_inputs_alt(void)
     }
 
     //inline_delay(0x300);
-    timer_delay(300);
+    timer_delay(0x300);
 
     p2_gpio_debounce_state = p2_gpio_cur_state & P2IN;
 
@@ -396,7 +396,7 @@ void handle_user_inputs_alt(void)
               (prog_button_pressed[3] && (prog_button_debounce_count[3]>0)))
         {
             //inline_delay(0x30);
-            timer_delay(30);
+            timer_delay(0x30);
 
             if(prog_button_pressed[0] && ((P2IN & GPIO_PROGRAM_BUTTON) == 0))
             {
@@ -536,7 +536,7 @@ void handle_user_inputs_alt(void)
             turn_on_p1_led(GPIO_STATUS_LED);
             erase_button_ids();
             //inline_delay(0x800);
-            timer_delay(800);
+            timer_delay(0x800);
             //turn_off_p1_led(GPIO_RF_ACTIVITY_LED);
             turn_on_p1_led(GPIO_STATUS_LED);
         }
@@ -593,7 +593,7 @@ void play_from_queue()
         {
             turn_on_p1_led(GPIO_STATUS_LED);
             //inline_delay(0x600);
-            timer_delay(600);
+            timer_delay(0x600);
             turn_off_p1_led(GPIO_STATUS_LED);
             queue_dequeue(&id_queue);
         }
