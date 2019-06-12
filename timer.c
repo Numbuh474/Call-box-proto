@@ -118,3 +118,84 @@ int timer_decode()
     timer_rcv_periods = 0;
     return 1;
 }
+void timer_delay(unsigned int usec)
+{
+    //timer_msec[0] = 0;
+    TA1CTL = TASSEL_2 | ID_0 | MC_0;
+    usec += TA1R;
+    timer_msec[0] = usec / 1000;
+    usec = usec % 1000;
+    /*while (usec+TA1R >= 1000)
+    {
+        usec-=1000;
+        timer_msec[0]++;
+    }*/
+    if (timer_msec[0] == 0)
+        TA1CCTL1 = CM_0 | CCIS_2 | CCIE;
+    TA1CCR1 = usec;
+    SET_FLAG(timer_enable,0);
+    TA1CTL = TASSEL_2 | ID_0 | MC_1 | TAIE;
+    while (FLAG(timer_enable,0))
+        ;
+}
+void start_timera1()
+{
+    TA1CTL = MC_0 | TACLR;
+    timer_enable = 0;
+    timer_sem = TIMER_RESOURCE-1;
+    TA1CCR0 = 1000-1;
+    TA1CTL = TASSEL_2 | ID_0 | MC_1 | TAIE;
+    TA1CCTL1 = CM_0 | CCIS_2;
+}
+//if available, start a running timer in msec
+int timer_begin( void )
+{
+    if (!timer_sem)
+        return 0;
+    unsigned int i;
+    int id = 0;
+    for (i = 1; id==0 && i<TIMER_RESOURCE; i++)
+    {
+        if (!FLAG(timer_enable,i))
+        {
+            timer_sem--;
+            id = 100+i;
+            timer_msec[i]=0;
+            SET_FLAG(timer_enable, i);
+        }
+    }
+    return id;
+}
+//check on a timer without deactivating it
+unsigned int timer_check(int id)
+{
+    id-=100;
+    if (id<0 || id>= TIMER_RESOURCE || !FLAG(timer_enable,id))
+        return 0;
+    return timer_msec[id];
+}
+//check on a timer and deactivate it
+unsigned int timer_release(int id)
+{
+    id-=100;
+    if (id<0 || id>= TIMER_RESOURCE || !FLAG(timer_enable,id))
+        return 0;
+    unsigned int result = timer_msec[id];
+    CLEAR_FLAG(timer_enable,id);
+    timer_msec[id] = 0;
+    timer_sem++;
+    return result;
+}
+//wait until a timer reaches msec, then deactivate it.
+int timer_release_at(int id, unsigned int msec)
+{
+    id-=100;
+    if (id<0 || id>=TIMER_RESOURCE || !FLAG(timer_enable,id))
+        return 0;
+    while (timer_msec[id] <= msec)
+        ;
+    CLEAR_FLAG(timer_enable,id);
+    timer_msec[id] = 0;
+    timer_sem++;
+    return 1;
+}

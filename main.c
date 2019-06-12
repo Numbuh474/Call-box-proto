@@ -53,7 +53,7 @@ void run_program(void)
     }*/
     __enable_interrupt(); // Enable Global Interrupts
     start_timera();
-    //add_to_queue(0);
+    start_timera1();
     do
 	{
 	    //handle user programming inputs
@@ -81,7 +81,8 @@ void run_program(void)
 
 	    if(button_1_programmed > 0)
 	    {
-	        inline_delay(0x80);
+	        //inline_delay(0x80);
+	        timer_delay(80);
 	        button_1_programmed--;
 	        if(button_1_programmed == 0)
 	        {
@@ -91,7 +92,8 @@ void run_program(void)
 	    }
 	    else
 	    {
-	        inline_delay(0x500);
+	        //inline_delay(0x500);
+	        timer_delay(500);
 	    }
 
 	    //TODO: add support for power savings
@@ -174,7 +176,8 @@ void play_audio(unsigned int audio_channel)
     {
         set_gpio_p1_high(audio_gpio);
 
-        inline_delay(0x300);
+        //inline_delay(0x300);
+        timer_delay(300);
 
         set_gpio_p1_low(audio_gpio);
     }
@@ -352,6 +355,7 @@ void handle_user_inputs_alt(void)
     unsigned int prog_button_released[4];
     unsigned int prog_button_debounce_count[4];
     unsigned int prog_button_delta [4];
+    int prog_button_timer_id [4];
     unsigned int count = 0;
 
     static unsigned int button_counter = 0;
@@ -364,9 +368,11 @@ void handle_user_inputs_alt(void)
         prog_button_released[count] = 0;
         prog_button_debounce_count[count] = 0;
         prog_button_delta[count] = 0;
+        prog_button_timer_id[count] = 0;
     }
 
-    inline_delay(0x300);
+    //inline_delay(0x300);
+    timer_delay(300);
 
     p2_gpio_debounce_state = p2_gpio_cur_state & P2IN;
 
@@ -380,6 +386,8 @@ void handle_user_inputs_alt(void)
         for (count=0; count<4; count++)
         {
             prog_button_debounce_count[count] = 3;
+            if (prog_button_pressed[count])
+                prog_button_timer_id[count] = timer_begin();
         }
 
         while((prog_button_pressed[0] && (prog_button_debounce_count[0]>0)) ||
@@ -387,7 +395,8 @@ void handle_user_inputs_alt(void)
               (prog_button_pressed[2] && (prog_button_debounce_count[2]>0)) ||
               (prog_button_pressed[3] && (prog_button_debounce_count[3]>0)))
         {
-            inline_delay(0x30);
+            //inline_delay(0x30);
+            timer_delay(30);
 
             if(prog_button_pressed[0] && ((P2IN & GPIO_PROGRAM_BUTTON) == 0))
             {
@@ -407,6 +416,15 @@ void handle_user_inputs_alt(void)
             }
             for (count=0; count<4; count++)
             {
+                prog_button_delta[count] = timer_check(prog_button_timer_id);
+                if (prog_button_delta[0] > 2000 && button_counter == 0)
+                {
+                    turn_on_p1_led(GPIO_RF_ACTIVITY_LED);
+                    set_gpio_p1_high(GPIO_AUDIO_REC1_ENABLE);
+                }
+            }
+            /*for (count=0; count<4; count++)
+            {
                 if(prog_button_pressed[count] && prog_button_delta[count] != ~(unsigned int)0)
                 {
                     prog_button_delta[count]++;
@@ -417,10 +435,12 @@ void handle_user_inputs_alt(void)
                         set_gpio_p1_high(GPIO_AUDIO_REC1_ENABLE);
                     }
                 }
-            }
-        }
+            }*/
+
+        }//while
         for (count=0; count<4; count++)
         {
+            timer_release(prog_button_timer_id[count]);
             if(prog_button_debounce_count[count] == 0)
                 {
                     //program button was pressed and released
@@ -444,7 +464,7 @@ void handle_user_inputs_alt(void)
             button_focus = count;
             button_timer = 0;
             //disable recording if button 0 pressed once for 5000mut
-            if (prog_button_delta[count] > 5000 )//&& button_counter == 1)
+            if (prog_button_delta[count] > 2000 )//&& button_counter == 1)
             {
                 set_gpio_p1_low(GPIO_AUDIO_REC1_ENABLE);
                 turn_off_p1_led(GPIO_RF_ACTIVITY_LED);
@@ -515,7 +535,8 @@ void handle_user_inputs_alt(void)
             //turn_on_p1_led(GPIO_RF_ACTIVITY_LED);
             turn_on_p1_led(GPIO_STATUS_LED);
             erase_button_ids();
-            inline_delay(0x800);
+            //inline_delay(0x800);
+            timer_delay(800);
             //turn_off_p1_led(GPIO_RF_ACTIVITY_LED);
             turn_on_p1_led(GPIO_STATUS_LED);
         }
@@ -531,8 +552,6 @@ void handle_user_inputs_alt(void)
     if( program_mode_active && !(program_button_active) && !(button_1_programmed) )
     {
         turn_on_p1_led(GPIO_STATUS_LED);
-        //for(count = 20; count > 0; count--)
-        //    inline_delay(0x4000);
         //exit program mode
         //wait for release
         turn_off_p1_led(GPIO_STATUS_LED);
@@ -573,7 +592,8 @@ void play_from_queue()
         if (timer==0)
         {
             turn_on_p1_led(GPIO_STATUS_LED);
-            inline_delay(0x600);
+            //inline_delay(0x600);
+            timer_delay(600);
             turn_off_p1_led(GPIO_STATUS_LED);
             queue_dequeue(&id_queue);
         }
@@ -585,7 +605,7 @@ void play_from_queue()
 //interrupts
 //CCR1
 #pragma vector = TIMER0_A1_VECTOR
-__interrupt void TimerA1(void)
+__interrupt void TimerA01(void)
 {
     unsigned int taiv = TAIV;
     switch (timer_state)
@@ -637,7 +657,7 @@ __interrupt void TimerA1(void)
 
 //TACCR0
 #pragma vector = TIMER0_A0_VECTOR
-__interrupt void TimerA0(void)
+__interrupt void TimerA00(void)
 {
     switch (timer_state)
     {
@@ -702,6 +722,45 @@ __interrupt void TimerA0(void)
         TACCTL1 = CM_0 | CCIS_0 | SCS;
         TACTL = TASSEL_2 | ID_0 | MC_2 | TACLR;
     }
+    }
+}
+
+#pragma vector = TIMER1_A1_VECTOR
+__interrupt void TIMERA11 (void)
+{
+    __enable_interrupt();
+    unsigned int taiv = TA1IV;
+    switch (taiv)
+    {
+    case TA1IV_TAIFG:
+    {
+        unsigned int i;
+        if (FLAG(timer_enable,0))
+        {
+            if (timer_msec[0]==0)
+            {
+                TA1CCTL1 = CM_0 | CCIS_2 | CCIE;
+                TA1CTL |= TACLR;
+                TA1CTL = TASSEL_2 | ID_0 | MC_1 | TAIE;
+            }
+            if (timer_msec[0])
+                timer_msec[0]--;
+        }
+
+        for (i = 1; i < TIMER_RESOURCE; i++)
+        {
+            if (FLAG(timer_enable,i))
+                timer_msec[i]++;
+        }
+        break;
+    }
+    case TA1IV_TACCR1:
+    {
+        CLEAR_FLAG(timer_enable,0);
+        TA1CCTL1 &= ~(CCIE);
+        break;
+    }
+    default:{}
     }
 }
 
