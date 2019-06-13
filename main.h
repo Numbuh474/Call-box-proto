@@ -29,12 +29,12 @@
 
 #define GPIO_AUDIO_REC1_ENABLE   BIT4  //P1.4 >> P1.0
 #define GPIO_STATUS_LED          BIT6  //P1.6 >> P2.1 (R)
-#define GPIO_AUDIO_CHAN1_ENABLE  BIT7  //P1.7 >> P1.3
+#define GPIO_AUDIO_CHAN1_ENABLE  BIT7  //P1.7 >> P1.2
 
-#define GPIO_USCI_SS             BIT4
-#define GPIO_USCI_CLK            BIT5
-#define GPIO_USCI_MISO           BIT6
-#define GPIO_USCI_MOSI           BIT7
+#define GPIO_USCI_SS             BIT4  //P1.4
+#define GPIO_USCI_CLK            BIT5  //P1.5
+#define GPIO_USCI_MISO           BIT6  //P1.6
+#define GPIO_USCI_MOSI           BIT7  //P1.7
 
 #define GPIO_PROGRAM_BUTTON      BIT0  //P2.0
 #define GPIO_PROGRAM_BUTTON_1    BIT1  //P2.1 >> P2.6
