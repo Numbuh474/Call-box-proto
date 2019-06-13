@@ -356,7 +356,8 @@ void handle_user_inputs_alt(void)
     unsigned int prog_button_released[4];
     unsigned int prog_button_debounce_count[4];
     unsigned int prog_button_delta [4];
-    int prog_button_timer_id [4];
+
+    int prog_button_timer_id = 0;
     unsigned int count = 0;
 
     static unsigned int button_counter = 0;
@@ -370,7 +371,6 @@ void handle_user_inputs_alt(void)
         prog_button_released[count] = 0;
         prog_button_debounce_count[count] = 0;
         prog_button_delta[count] = 0;
-        prog_button_timer_id[count] = 0;
     }
 
     //inline_delay(0x300);
@@ -385,11 +385,10 @@ void handle_user_inputs_alt(void)
 
     if(prog_button_pressed[0] || prog_button_pressed[1] || prog_button_pressed[2] || prog_button_pressed[3])
     {
+        prog_button_timer_id = timer_begin();
         for (count=0; count<4; count++)
         {
             prog_button_debounce_count[count] = 3;
-            if (prog_button_pressed[count])
-                prog_button_timer_id[count] = timer_begin();
         }
 
         while((prog_button_pressed[0] && (prog_button_debounce_count[0]>0)) ||
@@ -418,8 +417,9 @@ void handle_user_inputs_alt(void)
             }
             for (count=0; count<4; count++)
             {
-                prog_button_delta[count] = timer_check(prog_button_timer_id[count]);
-                if (prog_button_delta[0] > 2000 && button_counter == 0)
+                prog_button_delta[count] = timer_check(prog_button_timer_id);
+                //enable recording if button held for 2s
+                if (prog_button_delta[count] > 2000 && button_counter == 0)
                 {
                     turn_on_p1_led(GPIO_RF_ACTIVITY_LED);
                     set_gpio_p1_high(GPIO_AUDIO_REC1_ENABLE);
@@ -440,9 +440,10 @@ void handle_user_inputs_alt(void)
             }*/
 
         }//while
+        timer_release(prog_button_timer_id);
         for (count=0; count<4; count++)
         {
-            prog_button_delta[count] = timer_release(prog_button_timer_id[count]);
+
             if(prog_button_debounce_count[count] == 0)
                 {
                     //program button was pressed and released
@@ -464,8 +465,8 @@ void handle_user_inputs_alt(void)
                 button_counter++;
             }
             button_focus = count;
-            //button_timer = 0;
             button_timer_id = timer_begin();
+            //button_timer = 0;
             //disable recording if button 0 pressed once for 5000mut
             if (prog_button_delta[count] > 2000 )//&& button_counter == 1)
             {
@@ -473,6 +474,7 @@ void handle_user_inputs_alt(void)
                 turn_off_p1_led(GPIO_RF_ACTIVITY_LED);
                 button_counter = 0;
                 //button_timer = 0;
+                timer_release(button_timer_id);
                 message_length = prog_button_delta[count]-2000;
             }
         }
@@ -495,7 +497,6 @@ void handle_user_inputs_alt(void)
     {
         //button_timer = 0;
         timer_release(button_timer_id);
-        button_timer_id = 0;
 
         if (button_counter == 1)
         {
