@@ -24,22 +24,28 @@
 #define BUTTON_ID_INVALID 0xFF000000
 
 //GPIO definitions
-#define GPIO_RF_ACTIVITY_LED     BIT0  //P1.0 >> P2.3 (G)
+//INPUTS
+//#define GPIO_PROGRAM_BUTTON      BIT0  //P2.0
+//#define GPIO_ERASE_BUTTONS       BIT2  //P2.2
+//#define GPIO_CHAN1_REC_BUTTON    BIT4  //P2.4
+//#define GPIO_PROGRAM_BUTTON_1    BIT6  //P2.1 >> P2.6
+#define GPIO_BUTTON(x)           (BIT(x<<1))
+//OUTPUTS
+#define GPIO_AUDIO_REC1_ENABLE   BIT3  //P1.4 >> NONE
+#define GPIO_AUDIO_CHAN1_ENABLE  BIT2  //P1.7 >> NONE
+#define GPIO_STATUS_LED          LED_R  //BIT6  //P1.6 >> P2.1 (R)
+#define GPIO_RF_ACTIVITY_LED     LED_G  //BIT0  //P1.0 >> P2.3 (G)
+//#define GPIO_UNASSIGNED_LED      LED_B  //P2.5
+
+//SPECIAL
 #define GPIO_RF_INPUT            BIT1  //P1.1 ((must stay))
-
-#define GPIO_AUDIO_REC1_ENABLE   BIT4  //P1.4 >> P1.0
-#define GPIO_STATUS_LED          BIT6  //P1.6 >> P2.1 (R)
-#define GPIO_AUDIO_CHAN1_ENABLE  BIT7  //P1.7 >> P1.2
-
 #define GPIO_USCI_SS             BIT4  //P1.4
 #define GPIO_USCI_CLK            BIT5  //P1.5
 #define GPIO_USCI_MISO           BIT6  //P1.6
 #define GPIO_USCI_MOSI           BIT7  //P1.7
 
-#define GPIO_PROGRAM_BUTTON      BIT0  //P2.0
-#define GPIO_PROGRAM_BUTTON_1    BIT1  //P2.1 >> P2.6
-#define GPIO_ERASE_BUTTONS       BIT2  //P2.2
-#define GPIO_CHAN1_REC_BUTTON    BIT4  //P2.4
+
+
 
 /*volatile unsigned int new_cap=0;
 volatile unsigned int old_cap=0;
@@ -62,7 +68,6 @@ queue_t id_queue_array [8];
 
 
 void init_clk();
-void setup_pins(void);
 unsigned int add_decode_transition(unsigned int new_timestamp);
 unsigned long get_call_button_id(void);
 unsigned int get_next_decoded_bit(unsigned int decode_index);

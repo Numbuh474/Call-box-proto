@@ -70,7 +70,7 @@ void run_program(void)
 	        //TODO: user timer to toggle LED
 	        if(led_toggle == 0)
 	        {
-	            toggle_p1_led(GPIO_STATUS_LED);
+	            toggle_led(GPIO_STATUS_LED);
 	            led_toggle = 50;
 	        }
 	        else
@@ -87,7 +87,7 @@ void run_program(void)
 	        if(button_1_programmed == 0)
 	        {
 	            //keep LED on
-	            turn_on_p1_led(GPIO_STATUS_LED);
+	            turn_on_led(GPIO_STATUS_LED);
 	        }
 	    }
 	    else
@@ -114,41 +114,7 @@ void init_clk()
    // }
 }
 
-void setup_pins(void)
-{
-     // set P1 GPIOs
-    P1SEL &= ~(GPIO_AUDIO_CHAN1_ENABLE | GPIO_STATUS_LED | GPIO_RF_ACTIVITY_LED | GPIO_AUDIO_REC1_ENABLE);
-    // intialize output pins
-    P1OUT &= ~(GPIO_AUDIO_CHAN1_ENABLE | GPIO_STATUS_LED | GPIO_RF_ACTIVITY_LED | GPIO_AUDIO_REC1_ENABLE);
-    // set up output pins
-    P1DIR |= GPIO_AUDIO_CHAN1_ENABLE | GPIO_STATUS_LED | GPIO_RF_ACTIVITY_LED | GPIO_AUDIO_REC1_ENABLE;
-    // intialize output pins
-    P1OUT &= ~(GPIO_AUDIO_CHAN1_ENABLE | GPIO_STATUS_LED | GPIO_RF_ACTIVITY_LED | GPIO_AUDIO_REC1_ENABLE);
-    //set P1 input pins
-    P1DIR &= ~(GPIO_RF_INPUT);
-    //set GPIO_RF_INPUT to TA0
-    P1SEL = GPIO_RF_INPUT;
 
-    // set P2 GPIOs
-    P2SEL &= ~(GPIO_PROGRAM_BUTTON | GPIO_PROGRAM_BUTTON_1 | GPIO_ERASE_BUTTONS | GPIO_CHAN1_REC_BUTTON);
-    // set up output pins
-    //P2DIR |= ;
-    // intialize output pins
-    //P2OUT &= ~();
-    //set input pins
-    P2DIR &= ~(GPIO_PROGRAM_BUTTON | GPIO_PROGRAM_BUTTON_1 | GPIO_ERASE_BUTTONS | GPIO_CHAN1_REC_BUTTON);
-    //set pull downs
-    P2REN &= ~(GPIO_PROGRAM_BUTTON | GPIO_PROGRAM_BUTTON_1 | GPIO_ERASE_BUTTONS | GPIO_CHAN1_REC_BUTTON);
-    //setup interrupt
-    //P2IES &= ~(GPIO_PROGRAM_BUTTON); // rising Edge 0 -> 1
-    //P2IE |= (GPIO_PROGRAM_BUTTON);
-    //P2IFG &= ~(GPIO_PROGRAM_BUTTON);
-
-    //disable port 3 for now
-    P3DIR = 0xFF;
-    P3OUT &= 0x00;
-
-}
 
 void init_globals(void)
 {
@@ -355,9 +321,10 @@ void handle_user_inputs_alt(void)
     unsigned int prog_button_pressed[4];
     unsigned int prog_button_released[4];
     unsigned int prog_button_debounce_count[4];
-    unsigned int prog_button_delta [4];
+
 
     int prog_button_timer_id = 0;
+    unsigned int prog_button_delta = 0;
     unsigned int count = 0;
 
     static unsigned int button_counter = 0;
@@ -370,18 +337,20 @@ void handle_user_inputs_alt(void)
         prog_button_pressed[count] = 0;
         prog_button_released[count] = 0;
         prog_button_debounce_count[count] = 0;
-        prog_button_delta[count] = 0;
     }
 
     //inline_delay(0x300);
     timer_delay(0x300);
 
     p2_gpio_debounce_state = p2_gpio_cur_state & P2IN;
-
-    prog_button_pressed[0] = p2_gpio_debounce_state & GPIO_PROGRAM_BUTTON;
+    for (count = 0; count< 4; count++)
+        {
+            prog_button_pressed[count] = p2_gpio_debounce_state & GPIO_BUTTON(count);
+        }
+    /*prog_button_pressed[0] = p2_gpio_debounce_state & GPIO_PROGRAM_BUTTON;
     prog_button_pressed[1] = p2_gpio_debounce_state & GPIO_PROGRAM_BUTTON_1;
     prog_button_pressed[2] = p2_gpio_debounce_state & GPIO_ERASE_BUTTONS;
-    prog_button_pressed[3] = p2_gpio_debounce_state & GPIO_CHAN1_REC_BUTTON;
+    prog_button_pressed[3] = p2_gpio_debounce_state & GPIO_CHAN1_REC_BUTTON;*/
 
     if(prog_button_pressed[0] || prog_button_pressed[1] || prog_button_pressed[2] || prog_button_pressed[3])
     {
@@ -399,48 +368,22 @@ void handle_user_inputs_alt(void)
             //inline_delay(0x30);
             timer_delay(0x30);
 
-            if(prog_button_pressed[0] && ((P2IN & GPIO_PROGRAM_BUTTON) == 0))
-            {
-                prog_button_debounce_count[0]--;
-            }
-            if(prog_button_pressed[1] && ((P2IN & GPIO_PROGRAM_BUTTON_1) == 0))
-            {
-                prog_button_debounce_count[1]--;
-            }
-            if(prog_button_pressed[2] && ((P2IN & GPIO_ERASE_BUTTONS) == 0))
-            {
-                prog_button_debounce_count[2]--;
-            }
-            if(prog_button_pressed[3] && ((P2IN & GPIO_CHAN1_REC_BUTTON) == 0))
-            {
-                prog_button_debounce_count[3]--;
-            }
             for (count=0; count<4; count++)
             {
-                prog_button_delta[count] = timer_check(prog_button_timer_id);
-                //enable recording if button held for 2s
-                if (prog_button_delta[count] > 2000 && button_counter == 0)
+                if(prog_button_pressed[count] && ((P2IN & GPIO_BUTTON(count)) == 0))
                 {
-                    turn_on_p1_led(GPIO_RF_ACTIVITY_LED);
+                    prog_button_debounce_count[count]--;
+                }
+                //enable recording if button held for 2s
+                if (timer_check(prog_button_timer_id) > 2000 && button_counter == 0)
+                {
+                    turn_on_led(GPIO_RF_ACTIVITY_LED);
                     set_gpio_p1_high(GPIO_AUDIO_REC1_ENABLE);
                 }
             }
-            /*for (count=0; count<4; count++)
-            {
-                if(prog_button_pressed[count] && prog_button_delta[count] != ~(unsigned int)0)
-                {
-                    prog_button_delta[count]++;
-                    //enable recording if button 0 held for 5000mut
-                    if (prog_button_delta[0] > 5000 && button_counter == 0)
-                    {
-                        turn_on_p1_led(GPIO_RF_ACTIVITY_LED);
-                        set_gpio_p1_high(GPIO_AUDIO_REC1_ENABLE);
-                    }
-                }
-            }*/
 
         }//while
-        timer_release(prog_button_timer_id);
+        prog_button_delta = timer_release(prog_button_timer_id);
         for (count=0; count<4; count++)
         {
 
@@ -468,14 +411,14 @@ void handle_user_inputs_alt(void)
             button_timer_id = timer_begin();
             //button_timer = 0;
             //disable recording if button 0 pressed once for 5000mut
-            if (prog_button_delta[count] > 2000 )//&& button_counter == 1)
+            if (prog_button_delta > 2000 )//&& button_counter == 1)
             {
                 set_gpio_p1_low(GPIO_AUDIO_REC1_ENABLE);
-                turn_off_p1_led(GPIO_RF_ACTIVITY_LED);
+                turn_off_led(GPIO_RF_ACTIVITY_LED);
                 button_counter = 0;
                 //button_timer = 0;
-                timer_release(button_timer_id);
-                message_length = prog_button_delta[count]-2000;
+                //timer_release(button_timer_id);
+                message_length = prog_button_delta-2000;
             }
         }
     }
@@ -511,7 +454,7 @@ void handle_user_inputs_alt(void)
             else
             {
                 button_counter = 0;
-                turn_off_p1_led(GPIO_STATUS_LED);
+                turn_off_led(GPIO_STATUS_LED);
                 program_mode_active = 0;
                 program_button_active = 0;
                 //reset_decoder();
@@ -523,12 +466,12 @@ void handle_user_inputs_alt(void)
         {
             button_counter = 0;
             //enter program mode
-            turn_on_p1_led(GPIO_STATUS_LED);
+            //turn_on_p1_led(GPIO_STATUS_LED);
             program_mode_active = 1;
 
             //stop receiver
             stop_timera();
-            turn_off_p1_led(GPIO_RF_ACTIVITY_LED);
+            //turn_off_p1_led(GPIO_RF_ACTIVITY_LED);
 
             //enable button record
             program_button_active = 1;
@@ -540,13 +483,13 @@ void handle_user_inputs_alt(void)
         //erase all buttons by pressing button 0 5 times
         else if (button_counter == 5 && button_focus==0 && !program_mode_active && !program_button_active)
         {
-            //turn_on_p1_led(GPIO_RF_ACTIVITY_LED);
-            turn_on_p1_led(GPIO_STATUS_LED);
+            //turn_on_led(GPIO_RF_ACTIVITY_LED);
+            turn_on_led(GPIO_STATUS_LED);
             erase_button_ids();
             //inline_delay(0x800);
             timer_delay(0x800);
             //turn_off_p1_led(GPIO_RF_ACTIVITY_LED);
-            turn_on_p1_led(GPIO_STATUS_LED);
+            turn_on_led(GPIO_STATUS_LED);
         }
         //any other number of presses detected with timeout
         else
@@ -560,10 +503,10 @@ void handle_user_inputs_alt(void)
     //exit program mode if in program mode and not programming button 1
     if( program_mode_active && !(program_button_active) && !(button_1_programmed) )
     {
-        turn_on_p1_led(GPIO_STATUS_LED);
+        //turn_on_led(GPIO_STATUS_LED);
         //exit program mode
         //wait for release
-        turn_off_p1_led(GPIO_STATUS_LED);
+        turn_off_led(GPIO_STATUS_LED);
         program_mode_active = 0;
         program_button_active = 0;
 
@@ -605,9 +548,9 @@ void play_from_queue()
     {
         flag++;
         timer_release(tid);
-        turn_on_p1_led(GPIO_STATUS_LED);
+        turn_on_led(GPIO_STATUS_LED);
         timer_delay(500);
-        turn_off_p1_led(GPIO_STATUS_LED);
+        turn_off_led(GPIO_STATUS_LED);
         queue_dequeue(&id_queue);
     }
 }
@@ -681,7 +624,7 @@ __interrupt void TimerA00(void)
         //rising edge, CCIxA, sync, capture, interrupt
         TACCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
         TACCTL1 = CM_0 | CCIS_0 | SCS;
-        turn_off_p1_led(GPIO_RF_ACTIVITY_LED);
+        turn_off_led(GPIO_RF_ACTIVITY_LED);
         break;
     }
     case syn:
@@ -708,7 +651,7 @@ __interrupt void TimerA00(void)
             TACCTL1 = CM_0 | CCIS_0 | SCS;
             TACTL = TASSEL_2 | ID_0 | MC_2;
         }
-        turn_off_p1_led(GPIO_RF_ACTIVITY_LED);
+        turn_off_led(GPIO_RF_ACTIVITY_LED);
         break;
     }
     case read:

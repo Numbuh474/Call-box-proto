@@ -44,12 +44,12 @@ void timer_push(unsigned int signal)
     if (signal)
     {
      timer_rcv_buffer[timer_rcv_index]++;
-     turn_on_p1_led(GPIO_RF_ACTIVITY_LED);
+     turn_on_led(GPIO_RF_ACTIVITY_LED);
      toggle_led_index++;
     }
     else//if (!signal)
     {
-     turn_off_p1_led(GPIO_RF_ACTIVITY_LED);
+     turn_off_led(GPIO_RF_ACTIVITY_LED);
      toggle_led_index++;
     }
 
