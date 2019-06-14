@@ -7,7 +7,12 @@
 #include <timer.h>
 #include <stddef.h>
 #include "queue.h"
+#include "isd.h"
 
+#define COLOR_  0
+#define RED     0b00000111
+#define GREEN   0b00111000
+#define BLUE    0b11000000
 #define BIT(x) (0x1<<(x))
 #define FLAG(x,y) ((x&BIT(y))!=0)
 #define SET_FLAG(x,y) x|=BIT(y)
@@ -17,9 +22,10 @@
 //TODO: allow for multiple audio channels
 #define AUDIO_CHANNEL_NONE 0
 #define AUDIO_CHANNEL_1 1
-#define AUDIO_CHANNEL_2 1
-#define AUDIO_CHANNEL_3 1
-#define AUDIO_CHANNEL_4 1
+#define AUDIO_CHANNEL_2 2
+#define AUDIO_CHANNEL_3 3
+#define AUDIO_CHANNEL_4 4
+#define AUDIO_CHANNEL(x) (x)
 #define AUDIO_CHANNEL_TOTAL 4
 #define BUTTON_ID_INVALID 0xFF000000
 
@@ -35,7 +41,7 @@
 #define GPIO_AUDIO_CHAN1_ENABLE  BIT2  //P1.7 >> NONE
 #define GPIO_STATUS_LED          LED_R  //BIT6  //P1.6 >> P2.1 (R)
 #define GPIO_RF_ACTIVITY_LED     LED_G  //BIT0  //P1.0 >> P2.3 (G)
-//#define GPIO_UNASSIGNED_LED      LED_B  //P2.5
+#define GPIO_ERROR_LED           LED_B  //P2.5
 
 //SPECIAL
 #define GPIO_RF_INPUT            BIT1  //P1.1 ((must stay))
@@ -44,16 +50,6 @@
 #define GPIO_USCI_MISO           BIT6  //P1.6
 #define GPIO_USCI_MOSI           BIT7  //P1.7
 
-
-
-
-/*volatile unsigned int new_cap=0;
-volatile unsigned int old_cap=0;
-volatile unsigned int cap_diff=0;
-unsigned int decode_array[DECODE_ARRAY_SIZE] = {0};
-unsigned int decode_array_head = 0;
-unsigned int decode_last_timestamp = 0;
-unsigned int decode_data_available = 0;*/
 unsigned int toggle_led_index;
 unsigned int p2_gpio_int_state;
 unsigned int program_mode_active;
@@ -61,6 +57,9 @@ unsigned int program_button_active;
 unsigned int program_button_target;
 unsigned int button_1_programmed;
 unsigned int message_length;
+
+unsigned char color[3];
+unsigned char * color_ptr;
 
 flash_data_struct_t button_id_list;
 struct Queue id_queue;
@@ -90,6 +89,7 @@ void init_globals(void);
 unsigned long get_multiple_call_button_ids(unsigned int num_of_ids);
 void add_to_queue(unsigned long button_id);
 void play_from_queue();
+void halt();
 
 
 #endif

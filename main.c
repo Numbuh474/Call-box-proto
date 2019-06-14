@@ -13,6 +13,8 @@ int main(void)
   for (i=0; i<20000; i++)                   // Delay for crystal stabilization
   {
   }
+  __enable_interrupt(); // Enable Global Interrupts
+
   //initialize system clock
   init_clk();
 
@@ -24,6 +26,9 @@ int main(void)
 
   //setup timer
   timera_init();
+
+  //initialize spi/isd interface
+  init_isd();
 
   //initialize flash part
   init_flash();
@@ -46,12 +51,6 @@ void run_program(void)
     //TODO: update to only enable timer when there are valid buttons programmed
     //check to see if there are valid buttons
     //if(button_id_list.num_of_valid_ids > 0)
-    //done on invocation of start_timera();
-    /*{
-        //enable capture interrupt
-        CCTL0 |= CCIE;
-    }*/
-    __enable_interrupt(); // Enable Global Interrupts
     start_timera();
     start_timera1();
     do
@@ -62,12 +61,14 @@ void run_program(void)
 	    //Handle receiver inputs
 	    handle_receiver_inputs_alt();
 
+	    //play pending queue messages
 	    if(!program_button_active)
 	        play_from_queue();
 
 	    if((program_button_active == 1) || button_1_programmed > 0)
 	    {
-	        //TODO: user timer to toggle LED
+	        //TODO: use timer to toggle LED
+
 	        if(led_toggle == 0)
 	        {
 	            toggle_led(GPIO_STATUS_LED);
@@ -82,7 +83,7 @@ void run_program(void)
 	    if(button_1_programmed > 0)
 	    {
 	        //inline_delay(0x80);
-	        timer_delay(0x80);
+	        timer_delay(100);
 	        button_1_programmed--;
 	        if(button_1_programmed == 0)
 	        {
@@ -93,7 +94,7 @@ void run_program(void)
 	    else
 	    {
 	        //inline_delay(0x500);
-	        timer_delay(0x500);
+	        timer_delay(1000);
 	    }
 
 	    //TODO: add support for power savings
@@ -104,14 +105,9 @@ void run_program(void)
 
 void init_clk()
 {
-    //if (CALBC1_1MHZ != 0xFF)   //check for calibration constant
-    //constant definition in msp430xxx.h, should fail to compile if
-    //microprocessor does not support
-    //{
-        DCOCTL = 0;
-        BCSCTL1 = CALBC1_1MHZ;
-        DCOCTL  = CALDCO_1MHZ;
-   // }
+    DCOCTL = 0;
+    BCSCTL1 = CALBC1_1MHZ;
+    DCOCTL  = CALDCO_1MHZ;
 }
 
 
@@ -128,62 +124,25 @@ void init_globals(void)
     flash_data_struct_t button_id_list = {0};
     struct Queue id_queue = {0};
     message_length = 0;
-
 }
+
 void play_audio(unsigned int audio_channel)
 {
-    unsigned int audio_gpio = 0xFF;
-
-    if(audio_channel == AUDIO_CHANNEL_1)
-    {
-        audio_gpio = GPIO_AUDIO_CHAN1_ENABLE;
-    }
-
-    if(audio_gpio != 0xFF)
-    {
-        set_gpio_p1_high(audio_gpio);
-
-        //inline_delay(0x300);
-        timer_delay(0x300);
-
-        set_gpio_p1_low(audio_gpio);
-    }
-}
-
-void inline_delay(unsigned int delay_cycle)
-{
-    volatile unsigned int i;
-
-    // delay for a while
-    for (i = delay_cycle; i > 0; i--);
+    isd_wait_ready();
+    isd_set_play(audio_channel);
 }
 
 unsigned int get_audio_channel(unsigned long button_id)
 {
-    unsigned int ret_channel = AUDIO_CHANNEL_NONE;
+    if(button_id==BUTTON_ID_INVALID)
+        return AUDIO_CHANNEL_NONE;
     unsigned int index = 0;
-
     for(index=0; index<AUDIO_CHANNEL_TOTAL; index++)
     {
-        //TODO: refactory button_id_list to be an array
-        if((index == 0) && (button_id == button_id_list.button_id[0]))
-        {
-            ret_channel = AUDIO_CHANNEL_1;
-        }
-        else if((index == 1) && (button_id == button_id_list.button_id[1]))
-        {
-            ret_channel = AUDIO_CHANNEL_2;
-        }
-        else if((index == 2) && (button_id == button_id_list.button_id[2]))
-        {
-            ret_channel = AUDIO_CHANNEL_3;
-        }
-        else if((index == 3) && (button_id == button_id_list.button_id[3]))
-        {
-            ret_channel = AUDIO_CHANNEL_4;
-        }
+        if (button_id==button_id_list.button_id[index])
+            return AUDIO_CHANNEL(index+1);
     }
-    return ret_channel;
+    return AUDIO_CHANNEL_NONE;
 }
 
 unsigned int get_num_active_chan(void)
@@ -199,10 +158,10 @@ void load_button_ids(void)
     //initialize button list
     temp_button_id.flash_struct_ver = button_id_list.flash_struct_ver = FLASH_DATA_VERSION;
     temp_button_id.num_of_valid_ids = button_id_list.num_of_valid_ids = 0;
-    temp_button_id.button_id[0] = button_id_list.button_id[0] = 0xFF000000;
-    temp_button_id.button_id[1] = button_id_list.button_id[1] = 0xFF000000;
-    temp_button_id.button_id[2] = button_id_list.button_id[2] = 0xFF000000;
-    temp_button_id.button_id[3] = button_id_list.button_id[3] = 0xFF000000;
+    temp_button_id.button_id[0] = button_id_list.button_id[0] = BUTTON_ID_INVALID;
+    temp_button_id.button_id[1] = button_id_list.button_id[1] = BUTTON_ID_INVALID;
+    temp_button_id.button_id[2] = button_id_list.button_id[2] = BUTTON_ID_INVALID;
+    temp_button_id.button_id[3] = button_id_list.button_id[3] = BUTTON_ID_INVALID;
 
     //read the data from flash to RAM
     if(flash_read((char *)&temp_button_id, FLASH_BLOCK_SIZE, FLASH_BLOCK_VERSION_OFFSET) == 1)
@@ -239,7 +198,8 @@ void load_button_ids(void)
         //intialize to latest
         if(flash_write((char *)&button_id_list, FLASH_BLOCK_SIZE, FLASH_BLOCK_VERSION_OFFSET) == 0)
         {
-            //TODO: add error state (flash status LED at a certain rate)
+            //TODO: add error state
+            halt();
         }
     }
 }
@@ -249,6 +209,7 @@ void write_button_ids(void)
     if(flash_write((char *)&button_id_list, FLASH_BLOCK_SIZE, FLASH_BLOCK_VERSION_OFFSET) == 0)
     {
         //TODO: add error state (flash status LED at a certain rate)
+        halt();
     }
 }
 
@@ -265,6 +226,7 @@ void erase_button_ids(void)
     if(flash_write((char *)&button_id_list, FLASH_BLOCK_SIZE, FLASH_BLOCK_VERSION_OFFSET) == 0)
     {
         //TODO: add error state (flash status LED at a certain rate)
+        halt();
     }
 
 }
@@ -326,11 +288,12 @@ void handle_user_inputs_alt(void)
     int prog_button_timer_id = 0;
     unsigned int prog_button_delta = 0;
     unsigned int count = 0;
+    unsigned int button_focus_press = 0;
 
     static unsigned int button_counter = 0;
-    //static unsigned int button_timer = 0;
     static unsigned int button_timer_id = 0;
     static unsigned int button_focus = 0;
+
 
     for (count = 0; count< 4; count++)
     {
@@ -340,17 +303,13 @@ void handle_user_inputs_alt(void)
     }
 
     //inline_delay(0x300);
-    timer_delay(0x300);
+    timer_delay(750);
 
     p2_gpio_debounce_state = p2_gpio_cur_state & P2IN;
     for (count = 0; count< 4; count++)
-        {
-            prog_button_pressed[count] = p2_gpio_debounce_state & GPIO_BUTTON(count);
-        }
-    /*prog_button_pressed[0] = p2_gpio_debounce_state & GPIO_PROGRAM_BUTTON;
-    prog_button_pressed[1] = p2_gpio_debounce_state & GPIO_PROGRAM_BUTTON_1;
-    prog_button_pressed[2] = p2_gpio_debounce_state & GPIO_ERASE_BUTTONS;
-    prog_button_pressed[3] = p2_gpio_debounce_state & GPIO_CHAN1_REC_BUTTON;*/
+    {
+        prog_button_pressed[count] = p2_gpio_debounce_state & GPIO_BUTTON(count);
+    }
 
     if(prog_button_pressed[0] || prog_button_pressed[1] || prog_button_pressed[2] || prog_button_pressed[3])
     {
@@ -366,7 +325,7 @@ void handle_user_inputs_alt(void)
               (prog_button_pressed[3] && (prog_button_debounce_count[3]>0)))
         {
             //inline_delay(0x30);
-            timer_delay(0x30);
+            timer_delay(50);
 
             for (count=0; count<4; count++)
             {
@@ -374,27 +333,34 @@ void handle_user_inputs_alt(void)
                 {
                     prog_button_debounce_count[count]--;
                 }
-                //enable recording if button held for 2s
-                if (timer_check(prog_button_timer_id) > 2000 && button_counter == 0)
+                if(prog_button_pressed[count])
                 {
-                    turn_on_led(GPIO_RF_ACTIVITY_LED);
-                    set_gpio_p1_high(GPIO_AUDIO_REC1_ENABLE);
+                    button_focus_press = count;
                 }
             }
 
+            //enable recording if button held for 2s
+            if (timer_check(prog_button_timer_id) > 2000 && button_counter == 0)
+            {
+                stop_timera();
+                turn_on_led(GPIO_RF_ACTIVITY_LED);
+                //set_gpio_p1_high(GPIO_AUDIO_REC1_ENABLE);
+                unsigned int audio_channel = get_audio_channel(button_id_list.button_id[button_focus_press]);
+                isd_set_rec(audio_channel);
+            }
         }//while
+
         prog_button_delta = timer_release(prog_button_timer_id);
         for (count=0; count<4; count++)
         {
-
             if(prog_button_debounce_count[count] == 0)
                 {
                     //program button was pressed and released
                     prog_button_released[count] = 1;
                 }
         }
+    }//if(prog_button_pressed[0] || prog_button_pressed[1] || prog_button_pressed[2] || prog_button_pressed[3])
 
-    }
     for(count = 0; count<4; count++)
     {
         if (prog_button_released[count])
@@ -407,38 +373,29 @@ void handle_user_inputs_alt(void)
             {
                 button_counter++;
             }
-            button_focus = count;
+            //button_focus = count;
             button_timer_id = timer_begin();
-            //button_timer = 0;
-            //disable recording if button 0 pressed once for 5000mut
-            if (prog_button_delta > 2000 )//&& button_counter == 1)
-            {
-                set_gpio_p1_low(GPIO_AUDIO_REC1_ENABLE);
-                turn_off_led(GPIO_RF_ACTIVITY_LED);
-                button_counter = 0;
-                //button_timer = 0;
-                //timer_release(button_timer_id);
-                message_length = prog_button_delta-2000;
-            }
+
         }
     }
 
-    //not checking for timeout
-    if (button_counter == 0)
+    if (prog_button_delta > 2000 && button_counter == 1)
     {
-        //do nothing here
+        //set_gpio_p1_low(GPIO_AUDIO_REC1_ENABLE);
+        isd_stop();
+        turn_off_led(GPIO_RF_ACTIVITY_LED);
+        start_timera();
+        button_counter = 0;
     }
-    //checking for timeout at 50mut
-    //else if (button_timer <= 50)
-    else if (timer_check(button_timer_id)<2000)
+
+
+    //not checking for timeout / timeout has not occurred at 1.5 sec yet
+    if (button_counter == 0 || timer_check(button_timer_id)<1500)
     {
-        //no timeout
-        //button_timer++;
     }
     //timeout occurred
-    else //if (button_timer > 50)
+    else
     {
-        //button_timer = 0;
         timer_release(button_timer_id);
 
         if (button_counter == 1)
@@ -487,7 +444,7 @@ void handle_user_inputs_alt(void)
             turn_on_led(GPIO_STATUS_LED);
             erase_button_ids();
             //inline_delay(0x800);
-            timer_delay(0x800);
+            timer_delay(2000);
             //turn_off_p1_led(GPIO_RF_ACTIVITY_LED);
             turn_on_led(GPIO_STATUS_LED);
         }
@@ -516,6 +473,7 @@ void handle_user_inputs_alt(void)
     }
 }
 
+
 void add_to_queue(unsigned long button_id)
 {
     if (queue_index_of(&id_queue, button_id)<0)
@@ -524,19 +482,14 @@ void add_to_queue(unsigned long button_id)
 
 void play_from_queue()
 {
-    //TODO:save message lengths to memory
-    static unsigned int flag = 1;
-    static int tid = 0;
-    unsigned int delay = message_length + 1000;
-
-    if (id_queue.length > 0 && flag)
+    unsigned int flag = 0;
+    if (id_queue.length > 0 && !isd_is_playing())
     {
         unsigned int audio_channel = get_audio_channel(queue_get(&id_queue,0));
         if (audio_channel != AUDIO_CHANNEL_NONE)
         {
             play_audio(audio_channel);
             flag = 0;
-            tid = timer_begin();
         }
         else
         {
@@ -544,18 +497,23 @@ void play_from_queue()
             flag = 1;
         }
     }
-    else if (timer_check(tid) > delay)
+    else if (!isd_is_playing() && !flag)
     {
         flag++;
-        timer_release(tid);
         turn_on_led(GPIO_STATUS_LED);
-        timer_delay(500);
+        timer_delay(700);
         turn_off_led(GPIO_STATUS_LED);
         queue_dequeue(&id_queue);
     }
 }
 
-
+void halt()
+{
+    turn_on_led(GPIO_ERROR_LED);
+    volatile int i = 0;
+    while(!i)
+        ;
+}
 
 //interrupts
 //CCR1
@@ -581,15 +539,20 @@ __interrupt void TimerA01(void)
             timer_push(TACCTL0 & CCI);
             TACCR1 +=TIMER_PULSE;
         }
-        else if (timer_decode() && timer_rcv_index >= TIMER_RCV_BIT_LEN)
-            timer_state = flag;
-        else
+
+        else if (timer_rcv_index >= TIMER_RCV_BIT_LEN)
         {
-            timer_state = idle;
-            //rising, CCIxA, sync, capture, interrupt
-            TACCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
-            TACCTL1 = CM_0 | CCIS_0 | SCS;
-            TACTL = TASSEL_2 | ID_0 | MC_2;
+            __enable_interrupt();
+            if (timer_decode())
+                timer_state = flag;
+            else
+            {
+                timer_state = idle;
+                //rising, CCIxA, sync, capture, interrupt
+                TACCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
+                TACCTL1 = CM_0 | CCIS_0 | SCS;
+                TACTL = TASSEL_2 | ID_0 | MC_2;
+            }
         }
         break;
     }
@@ -605,7 +568,7 @@ __interrupt void TimerA01(void)
         TACCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
         TACCTL1 = CM_0 | CCIS_0 | SCS;
         TACTL = TASSEL_2 | ID_0 | MC_2;
-        break;
+        halt();
     }
     }
 }
@@ -676,6 +639,7 @@ __interrupt void TimerA00(void)
         TACCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
         TACCTL1 = CM_0 | CCIS_0 | SCS;
         TACTL = TASSEL_2 | ID_0 | MC_2 | TACLR;
+        halt();
     }
     }
 }
@@ -715,10 +679,62 @@ __interrupt void TIMERA11 (void)
         TA1CCTL1 &= ~(CCIE);
         break;
     }
-    default:{}
+#ifdef COLOR_
+    case TA1IV_TACCR2:
+    {
+        if (TA1CCR2>>7 < (color[1]&RED))
+            P2OUT |= LED_R;
+        else
+            P2OUT &= ~LED_R;
+        if (TA1CCR2>>7 < (color[1]&GREEN)>>3)
+            P2OUT |= LED_G;
+        else
+            P2OUT &= ~LED_G;
+        if (TA1CCR2>>7 < (color[1]&BLUE)>>5)
+            P2OUT |= LED_B;
+        else
+            P2OUT &= ~LED_B;
+        TA1CCR2 += 128;
+        if (TA1CCR2>=1000)
+        {
+            color[1] = color[2];
+            TA1CCR2 = 0;
+        }
+        break;
+#endif
+    }
+    default:
+    {
+        halt();
+    }
     }
 }
 
+#pragma vector = USCIAB0TX_VECTOR
+__interrupt void ISDtxRdy (void)
+{
+    if (isd_counter)
+    {
+        UCB0TXBUF = isd_tx[isd_tx_ptr++];
+        isd_counter--;
+    }
+    else
+    {
+        IE2 &= ~(UCB0TXIE);
+    }
+}
+
+#pragma vector = USCIAB0RX_VECTOR
+__interrupt void ISDrxRdy (void)
+{
+    isd_rx[isd_rx_ptr++] = UCB0RXBUF;
+    if (!isd_counter)
+    {
+        //set line high. disable interrupt
+        P1OUT |= GPIO_USCI_SS;
+        IE2 &= ~UCB0RXIE;
+    }
+}
 // //Port 2 interrupt service routine
 // #pragma vector = PORT2_VECTOR
 // __interrupt void Port_2(void)

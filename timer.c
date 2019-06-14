@@ -1,5 +1,5 @@
 #include "timer.h"
-
+//initialize rf module
 void timera_init(void)
 {
     //SMCLK, SMCLK/1, halt mode, clear TAR and divider, enable interrupt
@@ -14,6 +14,7 @@ void timera_init(void)
     timer_state = off;
     timer_rcv_periods = 0;
 }
+//start rf module
 inline void start_timera()
 {
     timer_state = idle;
@@ -22,7 +23,7 @@ inline void start_timera()
     TACCTL1 = CM_0 | CCIS_0 | SCS;
     TACTL = TASSEL_2 | ID_0 | MC_2;
 }
-
+//stop rf module
 void stop_timera(void)
 {
     timer_state = off;
@@ -30,7 +31,7 @@ void stop_timera(void)
     TACCTL0 &= ~(CCIE);
     //TACCTL1 &= ~(CCIE);
 }
-
+//put rf signal on buffer
 void timer_push(unsigned int signal)
 {
     //clear index on new word
@@ -63,7 +64,7 @@ void timer_push(unsigned int signal)
         timer_poll_count++;
     }
 }
-
+//try to convert rf signals to a button id
 int timer_decode()
 {
     unsigned int i = 0, parity_fail = 0;
@@ -118,6 +119,7 @@ int timer_decode()
     timer_rcv_periods = 0;
     return 1;
 }
+//wait for x microseconds (inaccurate)
 void timer_delay(unsigned int usec)
 {
     //timer_msec[0] = 0;
@@ -138,6 +140,7 @@ void timer_delay(unsigned int usec)
     while (FLAG(timer_enable,0))
         ;
 }
+//start the msec and usec delay timer.
 void start_timera1()
 {
     TA1CTL = MC_0 | TACLR;
@@ -146,8 +149,10 @@ void start_timera1()
     TA1CCR0 = 1000-1;
     TA1CTL = TASSEL_2 | ID_0 | MC_1 | TAIE;
     TA1CCTL1 = CM_0 | CCIS_2;
+    TA1CCR2 = 0;
+    TA1CCTL2 =  CM_0 | CCIS_2;
 }
-//if available, start a running timer in msec
+//request a running msec timer. Returns timer id.
 int timer_begin( void )
 {
     if (!timer_sem)
@@ -186,7 +191,7 @@ unsigned int timer_release(int id)
     timer_sem++;
     return result;
 }
-//wait until a timer reaches msec, then deactivate it.
+//wait until a timer reaches x miliseconds, then deactivate it
 int timer_release_at(int id, unsigned int msec)
 {
     id-=100;
