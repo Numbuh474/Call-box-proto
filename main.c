@@ -72,7 +72,7 @@ void run_program(void)
 	        if(led_toggle == 0)
 	        {
 	            toggle_led(GPIO_STATUS_LED);
-	            led_toggle = 50;
+	            led_toggle = 40;
 	        }
 	        else
 	        {
@@ -128,7 +128,6 @@ void init_globals(void)
 
 void play_audio(unsigned int audio_channel)
 {
-    isd_wait_ready();
     isd_set_play(audio_channel);
 }
 
@@ -289,6 +288,7 @@ void handle_user_inputs_alt(void)
     unsigned int prog_button_delta = 0;
     unsigned int count = 0;
     unsigned int button_focus_press = 0;
+    unsigned int is_recording = 0;
 
     static unsigned int button_counter = 0;
     static unsigned int button_timer_id = 0;
@@ -340,12 +340,14 @@ void handle_user_inputs_alt(void)
             }
 
             //enable recording if button held for 2s
-            if (timer_check(prog_button_timer_id) > 2000 && button_counter == 0)
+            if (timer_check(prog_button_timer_id) > 2000 && button_counter == 0 && !is_recording)
             {
                 stop_timera();
                 turn_on_led(GPIO_RF_ACTIVITY_LED);
                 //set_gpio_p1_high(GPIO_AUDIO_REC1_ENABLE);
                 //unsigned int audio_channel = AUDIO_CHANNEL(button_focus_press+1));
+                is_recording = 1;
+                isd_stop();
                 isd_set_rec(AUDIO_CHANNEL(button_focus_press+1));
             }
         }//while
@@ -374,11 +376,12 @@ void handle_user_inputs_alt(void)
                 button_counter++;
             }
             button_focus = count;
-            button_timer_id = timer_begin();
+            if (!button_timer_id)
+                button_timer_id = timer_begin();
         }
     }
-
-    if (prog_button_delta > 2000 && button_counter == 1)
+    //TODO
+    if (is_recording)
     {
         //set_gpio_p1_low(GPIO_AUDIO_REC1_ENABLE);
         isd_stop();
@@ -396,6 +399,7 @@ void handle_user_inputs_alt(void)
     else
     {
         timer_release(button_timer_id);
+        button_timer_id = 0;
 
         if (button_counter == 1)
         {
@@ -481,27 +485,21 @@ void add_to_queue(unsigned long button_id)
 
 void play_from_queue()
 {
-    unsigned int flag = 0;
-    if (id_queue.length > 0 && !isd_is_playing())
+    if (id_queue.length > 0 && !(isd_is_playing()))
     {
         unsigned int audio_channel = get_audio_channel(queue_get(&id_queue,0));
         if (audio_channel != AUDIO_CHANNEL_NONE)
         {
             play_audio(audio_channel);
-            flag = 0;
         }
         else
         {
             queue_dequeue(&id_queue);
-            flag = 1;
         }
     }
-    else if (!isd_is_playing() && !flag)
+    else if (isd_eom())
     {
-        flag++;
-        turn_on_led(GPIO_STATUS_LED);
-        timer_delay(700);
-        turn_off_led(GPIO_STATUS_LED);
+        isd_stop();
         queue_dequeue(&id_queue);
     }
 }
@@ -512,6 +510,7 @@ void halt()
     volatile int i = 0;
     while(!i)
         ;
+    turn_off_led(GPIO_ERROR_LED);
 }
 
 //interrupts
@@ -629,7 +628,10 @@ __interrupt void TimerA00(void)
         TACTL = MC_0 | TACLR;
         break;
     }
-
+    case off:
+    {
+        break;
+    }
     default:
     {
         timer_state = idle;

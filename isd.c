@@ -1,5 +1,6 @@
 #include "isd.h"
 
+
 const isd_cmd_t pu =         {0x01,2,0};
 const isd_cmd_t stop =       {0x02,2,0};
 const isd_cmd_t reset =      {0x03,2,0};
@@ -33,14 +34,15 @@ void init_isd()
     //master mode, 3 pin(SS controlled via software), synchronous
     UCB0CTL0 = UCCKPL | UCMST | UCMODE_0 | UCSYNC;
     UCB0CTL1 = UCSSEL_2 | UCSWRST;
-    //ucbclk = clk/10 (100KHz)
-    UCB0BR0 = 10;
-    UCB0BR1 = 0x00;
+    //ucbclk = clk (1MHz)
+    //UCB0BR0 = 0x00;
+    //UCB0BR1 = 0x00;
     set_gpio_p1_high(GPIO_USCI_SS);
     //disable reset
     UCB0CTL1 &= ~(UCSWRST);
 
     isd_transmit_validate(&pu,0,0);
+    //assign memory space based on capacity of the device
     isd_transmit(&devid,0,0);
     unsigned int id = isd_read(2)>>3;
     switch(id) {
@@ -105,6 +107,14 @@ void init_isd()
     isd_ptr[1] = ISD_MEM_BEGIN+isd_mem_msg;
     isd_ptr[2] = ISD_MEM_BEGIN+(isd_mem_msg<<1);
     isd_ptr[3] = ISD_MEM_BEGIN+(isd_mem_msg<<2);
+    //set device to end at EOM.
+    //read current apc register
+    isd_transmit(&rd_apc,0,0);
+    unsigned int apc = isd_read(3) & ISD_EOM_ENABLE;
+    apc = apc<<8 & isd_read(2);
+    //EOM enable = d11
+    isd_transmit(&clr_int,0,0);
+    isd_transmit(&wr_apc2,apc,0);
 }
 //wait until isd can accept another command
 void isd_wait_ready()
@@ -136,6 +146,13 @@ int isd_is_playing()
 {
     isd_transmit(&rd_status,0,0);
     if(isd_read(2)&ISD_PLAY)
+        return 1;
+    return 0;
+}
+int isd_eom()
+{
+    isd_transmit(&rd_status,0,0);
+    if(isd_read(2)&ISD_EOM)
         return 1;
     return 0;
 }

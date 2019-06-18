@@ -27,6 +27,7 @@
 #define ISD_ERASE       BIT1
 #define ISD_RDY         BIT0
 #define ISD_LED_EN      BIT4
+#define ISD_EOM_ENABLE  BIT3
 
 typedef struct
 {
@@ -54,6 +55,7 @@ void isd_set_play(unsigned int audio_channel);
 void isd_set_rec(unsigned int audio_channel);
 int isd_is_playing();
 int isd_is_recording();
+int isd_eom();
 unsigned char isd_read(unsigned int index);
 void isd_stop();
 unsigned int isd_decode_current_row();
