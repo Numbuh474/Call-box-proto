@@ -345,8 +345,8 @@ void handle_user_inputs_alt(void)
                 stop_timera();
                 turn_on_led(GPIO_RF_ACTIVITY_LED);
                 //set_gpio_p1_high(GPIO_AUDIO_REC1_ENABLE);
-                unsigned int audio_channel = get_audio_channel(button_id_list.button_id[button_focus_press]);
-                isd_set_rec(audio_channel);
+                //unsigned int audio_channel = AUDIO_CHANNEL(button_focus_press+1));
+                isd_set_rec(AUDIO_CHANNEL(button_focus_press+1));
             }
         }//while
 
@@ -373,9 +373,8 @@ void handle_user_inputs_alt(void)
             {
                 button_counter++;
             }
-            //button_focus = count;
+            button_focus = count;
             button_timer_id = timer_begin();
-
         }
     }
 
@@ -679,30 +678,6 @@ __interrupt void TIMERA11 (void)
         TA1CCTL1 &= ~(CCIE);
         break;
     }
-#ifdef COLOR_
-    case TA1IV_TACCR2:
-    {
-        if (TA1CCR2>>7 < (color[1]&RED))
-            P2OUT |= LED_R;
-        else
-            P2OUT &= ~LED_R;
-        if (TA1CCR2>>7 < (color[1]&GREEN)>>3)
-            P2OUT |= LED_G;
-        else
-            P2OUT &= ~LED_G;
-        if (TA1CCR2>>7 < (color[1]&BLUE)>>5)
-            P2OUT |= LED_B;
-        else
-            P2OUT &= ~LED_B;
-        TA1CCR2 += 128;
-        if (TA1CCR2>=1000)
-        {
-            color[1] = color[2];
-            TA1CCR2 = 0;
-        }
-        break;
-#endif
-    }
     default:
     {
         halt();
@@ -713,26 +688,24 @@ __interrupt void TIMERA11 (void)
 #pragma vector = USCIAB0TX_VECTOR
 __interrupt void ISDtxRdy (void)
 {
-    if (isd_counter)
-    {
-        UCB0TXBUF = isd_tx[isd_tx_ptr++];
-        isd_counter--;
-    }
-    else
-    {
-        IE2 &= ~(UCB0TXIE);
-    }
+        UCB0TXBUF = isd_tx[isd_tx_index++];
+        if (isd_tx_index >= isd_cmd_len)
+        {
+            IE2 &= ~UCB0TXIE;
+            if (!(IE2 & UCB0RXIE))
+                P1OUT |= GPIO_USCI_SS;
+        }
 }
 
 #pragma vector = USCIAB0RX_VECTOR
 __interrupt void ISDrxRdy (void)
 {
-    isd_rx[isd_rx_ptr++] = UCB0RXBUF;
-    if (!isd_counter)
+    isd_rx[isd_rx_index++] = UCB0RXBUF;
+    if (isd_rx_index >= isd_cmd_len)
     {
-        //set line high. disable interrupt
-        P1OUT |= GPIO_USCI_SS;
         IE2 &= ~UCB0RXIE;
+        if (!(IE2 & UCB0TXIE))
+            P1OUT |= GPIO_USCI_SS;
     }
 }
 // //Port 2 interrupt service routine

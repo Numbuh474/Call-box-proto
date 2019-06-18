@@ -27,20 +27,22 @@ const isd_cmd_t set_erase =  {0x82,7,2};
 //initialize isd module
 void init_isd()
 {
-    isd_counter = 0;
+    isd_cmd_len = 0;
+    isd_rx_index = 0;
+    isd_tx_index = 0;
     //master mode, 3 pin(SS controlled via software), synchronous
-    UCB0CTL0 = UCMST | UCMODE_0 | UCSYNC;
-    set_gpio_p1_high(GPIO_USCI_SS);
-    //enable module
+    UCB0CTL0 = UCCKPL | UCMST | UCMODE_0 | UCSYNC;
     UCB0CTL1 = UCSSEL_2 | UCSWRST;
+    //ucbclk = clk/10 (100KHz)
+    UCB0BR0 = 10;
+    UCB0BR1 = 0x00;
+    set_gpio_p1_high(GPIO_USCI_SS);
     //disable reset
     UCB0CTL1 &= ~(UCSWRST);
 
     isd_transmit_validate(&pu,0,0);
-    isd_wait_ready();
     isd_transmit(&devid,0,0);
-    isd_wait_ready();
-    unsigned int id = isd_rx[2]>>3;
+    unsigned int id = isd_read(2)>>3;
     switch(id) {
     case 0b11100:
     {
@@ -110,7 +112,7 @@ void isd_wait_ready()
     do
     {
         isd_transmit(&rd_status,0,0);
-    }   while(!(isd_rx[2]&ISD_RDY));
+    }   while(!(isd_read(2)&ISD_RDY));
 }
 //send a signal and ensure it was read correctly.
 void isd_transmit_validate(const isd_cmd_t* command, unsigned int data, unsigned int data2)
@@ -119,13 +121,13 @@ void isd_transmit_validate(const isd_cmd_t* command, unsigned int data, unsigned
     {
         isd_transmit(command,data,data2);
         isd_transmit(&rd_status,0,0);
-    }   while (isd_rx[0]&ISD_CMD_ERR);
+    }   while (isd_read(0)&ISD_CMD_ERR);
 }
 //returns bool
 int isd_is_recording()
 {
     isd_transmit(&rd_status,0,0);
-    if (isd_rx[2]&ISD_REC)
+    if (isd_read(2)&ISD_REC)
         return 1;
     return 0;
 }
@@ -133,7 +135,7 @@ int isd_is_recording()
 int isd_is_playing()
 {
     isd_transmit(&rd_status,0,0);
-    if(isd_rx[2]&ISD_PLAY)
+    if(isd_read(2)&ISD_PLAY)
         return 1;
     return 0;
 }
@@ -167,10 +169,17 @@ void isd_stop()
 //send a command to the isd
 void isd_transmit(const isd_cmd_t * command, unsigned int data, unsigned int data2)
 {
+    while (IE2 & UCB0RXIE)
+        ;
     if (!command)
         return;
-    unsigned int i = 0;
-    isd_tx[0] = command->cmd;
+    unsigned int i;
+    for (i=0; i<7; i++)
+    {
+        isd_tx[i] = 0;
+        isd_rx[i] = 0;
+    }
+    isd_tx[0] = command->cmd | BIT4;
     if (command->fields==1)
     {
         isd_tx[1] = (char)data;
@@ -184,22 +193,29 @@ void isd_transmit(const isd_cmd_t * command, unsigned int data, unsigned int dat
         isd_tx[4] = (char)data2;
         isd_tx[5] = data2>>8;
     }
-    while (isd_counter)
-        ;
-    isd_counter = command->length - 1;
-    isd_rx_ptr = 0;
-    isd_tx_ptr = 0;
+    isd_cmd_len = command->length;
+    isd_rx_index = 0;
+    isd_tx_index = 0;
     //set line low
     P1OUT &= ~GPIO_USCI_SS;
     //begin transmission
-    UCB0TXBUF = isd_tx[isd_tx_ptr++];
+    UCB0TXBUF = isd_tx[isd_tx_index++];
     //enable interrupt
     IE2 |= UCB0TXIE | UCB0RXIE;
 }
 //read the current row address from last transmission
 unsigned int isd_decode_current_row()
 {
+    while (IE2 & UCB0RXIE)
+        ;
     unsigned int result = isd_rx[1]<<3;
     result |= (isd_rx[0]&ISD_A2_0)>>5;
     return result;
+}
+//wait until the current transmission is done then return data at index
+unsigned char isd_read(unsigned int index)
+{
+    while (IE2 & UCB0RXIE)
+        ;
+    return isd_rx[index];
 }

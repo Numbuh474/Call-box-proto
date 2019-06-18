@@ -42,9 +42,9 @@ unsigned int isd_ptr[4];
 
 unsigned int isd_mem_max;
 unsigned int isd_mem_msg;
-volatile unsigned int isd_rx_ptr;
-volatile unsigned int isd_tx_ptr;
-volatile unsigned char isd_counter;
+volatile unsigned int isd_rx_index;
+volatile unsigned int isd_tx_index;
+volatile unsigned char isd_cmd_len;
 
 
 void isd_transmit(const isd_cmd_t* command, unsigned int data, unsigned int data2);
@@ -54,6 +54,7 @@ void isd_set_play(unsigned int audio_channel);
 void isd_set_rec(unsigned int audio_channel);
 int isd_is_playing();
 int isd_is_recording();
+unsigned char isd_read(unsigned int index);
 void isd_stop();
 unsigned int isd_decode_current_row();
 void init_isd();
