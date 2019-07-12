@@ -16,17 +16,22 @@
 #define ISD_MEM_17210   0x69f
 #define ISD_MEM_17240   0x78f
 
+//STATUS REGISTER 0 BYTE 1 (0)
 #define ISD_CMD_ERR     BIT0
 #define ISD_FULL        BIT1
 #define ISD_PU          BIT2
 #define ISD_EOM         BIT3
 #define ISD_INT         BIT4
 #define ISD_A2_0        0b11100000
+//STATUS REGISTER 0 BYTE 2 = ADDRESS 10:3 (1)
+//STATUS REGISTER 1 BYTE 1 (2)
 #define ISD_REC         BIT3
 #define ISD_PLAY        BIT2
 #define ISD_ERASE       BIT1
 #define ISD_RDY         BIT0
+//OR this with command byte to enable LED
 #define ISD_LED_EN      BIT4
+//OR this with APC byte 2 to enable EOM
 #define ISD_EOM_ENABLE  BIT3
 
 typedef struct
@@ -56,6 +61,8 @@ void isd_set_rec(unsigned int audio_channel);
 int isd_is_playing();
 int isd_is_recording();
 int isd_eom();
+int isd_interrupt();
+void isd_clear_interrupt();
 unsigned char isd_read(unsigned int index);
 void isd_stop();
 unsigned int isd_decode_current_row();

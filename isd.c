@@ -34,17 +34,19 @@ void init_isd()
     //master mode, 3 pin(SS controlled via software), synchronous
     UCB0CTL0 = UCCKPL | UCMST | UCMODE_0 | UCSYNC;
     UCB0CTL1 = UCSSEL_2 | UCSWRST;
-    //ucbclk = clk (1MHz)
-    //UCB0BR0 = 0x00;
-    //UCB0BR1 = 0x00;
+    //ucbclk = clk/512 (2KHz)
+    UCB0BR0 = 0x00;
+    UCB0BR1 = 0x01;
     set_gpio_p1_high(GPIO_USCI_SS);
     //disable reset
     UCB0CTL1 &= ~(UCSWRST);
-
+    //power up for SPI mode
     isd_transmit_validate(&pu,0,0);
     //assign memory space based on capacity of the device
     isd_transmit(&devid,0,0);
     unsigned int id = isd_read(2)>>3;
+    //isd_transmit(&rd_status,0,0);
+    //isd_read(0);
     switch(id) {
     case 0b11100:
     {
@@ -102,19 +104,23 @@ void init_isd()
         halt();
     }
     }//switch
-    isd_mem_msg = (isd_mem_max - ISD_MEM_BEGIN)>>2;
+    isd_mem_msg = (isd_mem_max - ISD_MEM_BEGIN)/4;
     isd_ptr[0] = ISD_MEM_BEGIN;
     isd_ptr[1] = ISD_MEM_BEGIN+isd_mem_msg;
-    isd_ptr[2] = ISD_MEM_BEGIN+(isd_mem_msg<<1);
-    isd_ptr[3] = ISD_MEM_BEGIN+(isd_mem_msg<<2);
+    isd_ptr[2] = ISD_MEM_BEGIN+(isd_mem_msg*2);
+    isd_ptr[3] = ISD_MEM_BEGIN+(isd_mem_msg*3);
     //set device to end at EOM.
-    //read current apc register
+    //get current APC settings
     isd_transmit(&rd_apc,0,0);
-    unsigned int apc = isd_read(3) & ISD_EOM_ENABLE;
-    apc = apc<<8 & isd_read(2);
-    //EOM enable = d11
+    //put APC register into an int
+    unsigned int apc = isd_read(3) | ISD_EOM_ENABLE;
+    apc = apc<<8;
+    apc |= isd_read(2);
+
     isd_transmit(&clr_int,0,0);
+    isd_wait_ready();
     isd_transmit(&wr_apc2,apc,0);
+    isd_wait_ready();
 }
 //wait until isd can accept another command
 void isd_wait_ready()
@@ -133,7 +139,7 @@ void isd_transmit_validate(const isd_cmd_t* command, unsigned int data, unsigned
         isd_transmit(&rd_status,0,0);
     }   while (isd_read(0)&ISD_CMD_ERR);
 }
-//returns bool
+//returns true if the isd is currently recording
 int isd_is_recording()
 {
     isd_transmit(&rd_status,0,0);
@@ -141,7 +147,7 @@ int isd_is_recording()
         return 1;
     return 0;
 }
-//returns bool
+//returns true if the isd is currently playing
 int isd_is_playing()
 {
     isd_transmit(&rd_status,0,0);
@@ -149,10 +155,19 @@ int isd_is_playing()
         return 1;
     return 0;
 }
+//returns true if the isd found an eom
 int isd_eom()
 {
     isd_transmit(&rd_status,0,0);
-    if(isd_read(2)&ISD_EOM)
+    if(isd_read(0)&ISD_EOM)
+        return 1;
+    return 0;
+}
+//returns true if the int flag on the isd is raised
+int isd_interrupt()
+{
+    isd_transmit(&rd_status,0,0);
+    if(isd_read(0)&ISD_INT)
         return 1;
     return 0;
 }
@@ -162,26 +177,39 @@ void isd_set_rec(unsigned int audio_channel)
     if(audio_channel > 4 || audio_channel == 0)
         return;
     audio_channel--;
+    //erase whatever's currently in memory at that location
     isd_transmit(&clr_int,0,0);
     isd_wait_ready();
-    isd_transmit_validate(&set_rec,isd_ptr[audio_channel], isd_ptr[audio_channel]+isd_mem_msg);
-
+    isd_transmit_validate(&set_erase,isd_ptr[audio_channel], isd_ptr[audio_channel]+isd_mem_msg-1);
+    isd_wait_ready();
+    //record new data
+    isd_transmit(&clr_int,0,0);
+    isd_wait_ready();
+    isd_transmit_validate(&set_rec,isd_ptr[audio_channel], isd_ptr[audio_channel]+isd_mem_msg-1);
 }
 //set isd to play from an audio channel.
 void isd_set_play(unsigned int audio_channel)
 {
-    if (audio_channel>4 || audio_channel==0)
+    if (audio_channel > 4 || audio_channel == 0)
         return;
     audio_channel--;
     isd_transmit(&clr_int,0,0);
     isd_wait_ready();
-    isd_transmit_validate(&set_play,isd_ptr[audio_channel], isd_ptr[audio_channel]+isd_mem_msg);
+    isd_transmit_validate(&set_play,isd_ptr[audio_channel], isd_ptr[audio_channel]+isd_mem_msg-1);
 
 }
 //stop play or recording
 void isd_stop()
 {
+
+    isd_transmit(&clr_int,0,0);
+    isd_wait_ready();
     isd_transmit_validate(&stop,0,0);
+}
+//wrapper for interrupt clear
+void isd_clear_interrupt()
+{
+    isd_transmit(&clr_int,0,0);
 }
 //send a command to the isd
 void isd_transmit(const isd_cmd_t * command, unsigned int data, unsigned int data2)

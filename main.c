@@ -53,6 +53,11 @@ void run_program(void)
     //if(button_id_list.num_of_valid_ids > 0)
     start_timera();
     start_timera1();
+
+    turn_on_led(GPIO_ERROR_LED);
+    int p = timer_begin();
+    timer_release_at(p,2000);
+    turn_off_led(GPIO_ERROR_LED);
     do
 	{
 	    //handle user programming inputs
@@ -124,11 +129,6 @@ void init_globals(void)
     flash_data_struct_t button_id_list = {0};
     struct Queue id_queue = {0};
     message_length = 0;
-}
-
-void play_audio(unsigned int audio_channel)
-{
-    isd_set_play(audio_channel);
 }
 
 unsigned int get_audio_channel(unsigned long button_id)
@@ -285,9 +285,8 @@ void handle_user_inputs_alt(void)
 
 
     int prog_button_timer_id = 0;
-    unsigned int prog_button_delta = 0;
     unsigned int count = 0;
-    unsigned int button_focus_press = 0;
+//    unsigned int button_focus_press = 0;
     unsigned int is_recording = 0;
 
     static unsigned int button_counter = 0;
@@ -314,7 +313,7 @@ void handle_user_inputs_alt(void)
     if(prog_button_pressed[0] || prog_button_pressed[1] || prog_button_pressed[2] || prog_button_pressed[3])
     {
         prog_button_timer_id = timer_begin();
-        for (count=0; count<4; count++)
+        for (count = 0; count<4; count++)
         {
             prog_button_debounce_count[count] = 3;
         }
@@ -327,15 +326,11 @@ void handle_user_inputs_alt(void)
             //inline_delay(0x30);
             timer_delay(50);
 
-            for (count=0; count<4; count++)
+            for (count = 0; count < 4; count++)
             {
                 if(prog_button_pressed[count] && ((P2IN & GPIO_BUTTON(count)) == 0))
                 {
                     prog_button_debounce_count[count]--;
-                }
-                if(prog_button_pressed[count])
-                {
-                    button_focus_press = count;
                 }
             }
 
@@ -344,16 +339,19 @@ void handle_user_inputs_alt(void)
             {
                 stop_timera();
                 turn_on_led(GPIO_RF_ACTIVITY_LED);
-                //set_gpio_p1_high(GPIO_AUDIO_REC1_ENABLE);
-                //unsigned int audio_channel = AUDIO_CHANNEL(button_focus_press+1));
                 is_recording = 1;
                 isd_stop();
-                isd_set_rec(AUDIO_CHANNEL(button_focus_press+1));
+                for (count = 0; count < 4; count++)
+                {
+                    if (prog_button_pressed[count])
+                        button_focus = count;
+                }
+                isd_set_rec(AUDIO_CHANNEL(button_focus+1));//audio channels are 1:4
             }
         }//while
-
-        prog_button_delta = timer_release(prog_button_timer_id);
-        for (count=0; count<4; count++)
+        //identify whether a button was pressed and released
+        timer_release(prog_button_timer_id);
+        for (count = 0; count<4; count++)
         {
             if(prog_button_debounce_count[count] == 0)
                 {
@@ -363,6 +361,7 @@ void handle_user_inputs_alt(void)
         }
     }//if(prog_button_pressed[0] || prog_button_pressed[1] || prog_button_pressed[2] || prog_button_pressed[3])
 
+    //set the active button and number of presses.
     for(count = 0; count<4; count++)
     {
         if (prog_button_released[count])
@@ -380,10 +379,11 @@ void handle_user_inputs_alt(void)
                 button_timer_id = timer_begin();
         }
     }
-    //TODO
+    //if the software was recording, reset the button timer and counter
+    //and remove the is_recording flag.
     if (is_recording)
     {
-        //set_gpio_p1_low(GPIO_AUDIO_REC1_ENABLE);
+        is_recording = 0;
         isd_stop();
         turn_off_led(GPIO_RF_ACTIVITY_LED);
         start_timera();
@@ -391,7 +391,7 @@ void handle_user_inputs_alt(void)
     }
 
 
-    //not checking for timeout / timeout has not occurred at 1.5 sec yet
+    //not checking for timeout / timeout has not occurred yet
     if (button_counter == 0 || timer_check(button_timer_id)<1500)
     {
     }
@@ -441,7 +441,9 @@ void handle_user_inputs_alt(void)
             start_timera();
         }
         //erase all buttons by pressing button 0 5 times
-        else if (button_counter == 5 && button_focus==0 && !program_mode_active && !program_button_active)
+        else if (button_counter == 5 && button_focus==0
+                    && !program_mode_active
+                    && !program_button_active)
         {
             //turn_on_led(GPIO_RF_ACTIVITY_LED);
             turn_on_led(GPIO_STATUS_LED);
@@ -485,22 +487,26 @@ void add_to_queue(unsigned long button_id)
 
 void play_from_queue()
 {
-    if (id_queue.length > 0 && !(isd_is_playing()))
+    static unsigned int can_play = 1;
+    //not playing, no interrupt.
+    if ( id_queue.length > 0 && !isd_is_playing() && can_play )
     {
         unsigned int audio_channel = get_audio_channel(queue_get(&id_queue,0));
-        if (audio_channel != AUDIO_CHANNEL_NONE)
-        {
-            play_audio(audio_channel);
-        }
-        else
+        if (audio_channel == AUDIO_CHANNEL_NONE)
         {
             queue_dequeue(&id_queue);
         }
+        else
+        {
+            isd_set_play(audio_channel);
+            can_play = 0;
+        }
     }
-    else if (isd_eom())
+    //not playing, interrupt happened (EOM)
+    else if ( id_queue.length > 0 && !isd_is_playing() )
     {
-        isd_stop();
         queue_dequeue(&id_queue);
+        can_play = 1;
     }
 }
 
@@ -510,7 +516,7 @@ void halt()
     volatile int i = 0;
     while(!i)
         ;
-    turn_off_led(GPIO_ERROR_LED);
+    //turn_off_led(GPIO_ERROR_LED);
 }
 
 //interrupts
@@ -566,7 +572,7 @@ __interrupt void TimerA01(void)
         TACCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
         TACCTL1 = CM_0 | CCIS_0 | SCS;
         TACTL = TASSEL_2 | ID_0 | MC_2;
-        halt();
+        //halt();
     }
     }
 }
@@ -640,7 +646,7 @@ __interrupt void TimerA00(void)
         TACCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
         TACCTL1 = CM_0 | CCIS_0 | SCS;
         TACTL = TASSEL_2 | ID_0 | MC_2 | TACLR;
-        halt();
+        //halt();
     }
     }
 }

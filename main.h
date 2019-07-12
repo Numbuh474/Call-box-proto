@@ -35,7 +35,7 @@
 //#define GPIO_ERASE_BUTTONS       BIT2  //P2.2
 //#define GPIO_CHAN1_REC_BUTTON    BIT4  //P2.4
 //#define GPIO_PROGRAM_BUTTON_1    BIT6  //P2.1 >> P2.6
-#define GPIO_BUTTON(x)           (BIT(x<<1))
+#define GPIO_BUTTON(x)           (BIT((int)x<<1))
 //OUTPUTS
 #define GPIO_AUDIO_REC1_ENABLE   BIT3  //P1.4 >> NONE
 #define GPIO_AUDIO_CHAN1_ENABLE  BIT2  //P1.7 >> NONE
@@ -73,7 +73,6 @@ unsigned int get_next_decoded_bit(unsigned int decode_index);
 void reset_decoder(void);
 unsigned long call_button_received(void);
 void run_program(void);
-void play_audio(unsigned int audio_channel);
 void inline_delay(unsigned int delay_cycle);
 unsigned int get_audio_channel(unsigned long button_id);
 unsigned int get_num_active_chan(void);
