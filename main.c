@@ -129,6 +129,7 @@ void init_globals(void)
     flash_data_struct_t button_id_list = {0};
     struct Queue id_queue = {0};
     message_length = 0;
+    can_play = 1;
 }
 
 unsigned int get_audio_channel(unsigned long button_id)
@@ -407,8 +408,8 @@ void handle_user_inputs_alt(void)
             //play audio
             if (program_mode_active == 0)
             {
-                //play_audio(audio_channel[button_focus]);
-                add_to_queue(button_id_list.button_id[button_focus]);
+                play_audio(AUDIO_CHANNEL(button_focus+1));
+                //add_to_queue(button_id_list.button_id[button_focus]);
             }
             //disable program mode
             else
@@ -487,27 +488,26 @@ void add_to_queue(unsigned long button_id)
 
 void play_from_queue()
 {
-    static unsigned int can_play = 1;
     //not playing, no interrupt.
     if ( id_queue.length > 0 && !isd_is_playing() && can_play )
     {
         unsigned int audio_channel = get_audio_channel(queue_get(&id_queue,0));
         if (audio_channel == AUDIO_CHANNEL_NONE)
-        {
             queue_dequeue(&id_queue);
-        }
         else
-        {
-            isd_set_play(audio_channel);
-            can_play = 0;
-        }
+            play_audio();
     }
-    //not playing, interrupt happened (EOM)
     else if ( id_queue.length > 0 && !isd_is_playing() )
     {
         queue_dequeue(&id_queue);
         can_play = 1;
     }
+}
+void play_audio(unsigned int audio_channel)
+{
+    isd_stop();
+    isd_set_play(audio_channel);
+    can_play = 0;
 }
 
 void halt()

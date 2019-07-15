@@ -57,9 +57,7 @@ unsigned int program_button_active;
 unsigned int program_button_target;
 unsigned int button_1_programmed;
 unsigned int message_length;
-
-unsigned char color[3];
-unsigned char * color_ptr;
+unsigned int can_play;
 
 flash_data_struct_t button_id_list;
 struct Queue id_queue;
