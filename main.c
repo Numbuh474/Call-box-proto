@@ -1,9 +1,3 @@
-#include <msp430.h>
-#include <flash.h>
-#include <pins.h>
-#include <timer.h>
-#include <stddef.h>
-#include "queue.h"
 #include "main.h"
 
 int main(void)
