@@ -473,13 +473,13 @@ void handle_user_inputs_alt(void)
     }
 }
 
-
+//adds the button ID to the play queue if it is not already in it.
 void add_to_queue(unsigned long button_id)
 {
-    if (queue_index_of(&id_queue, button_id)<0)
+    if (queue_index_of(&id_queue, button_id) < 0)
         queue_enqueue(&id_queue,button_id);
 }
-
+//attempts to play the recorded sound associated with a button ID
 void play_from_queue()
 {
     //not playing, no interrupt.
@@ -489,7 +489,8 @@ void play_from_queue()
         if (audio_channel == AUDIO_CHANNEL_NONE)
             queue_dequeue(&id_queue);
         else
-            play_audio();
+            isd_set_play(audio_channel);
+            can_play = 0;
     }
     else if ( id_queue.length > 0 && !isd_is_playing() )
     {
@@ -497,6 +498,7 @@ void play_from_queue()
         can_play = 1;
     }
 }
+//stops the current isd operation and begins playback of stored audio track
 void play_audio(unsigned int audio_channel)
 {
     isd_stop();

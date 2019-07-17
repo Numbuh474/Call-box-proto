@@ -86,6 +86,7 @@ void init_globals(void);
 unsigned long get_multiple_call_button_ids(unsigned int num_of_ids);
 void add_to_queue(unsigned long button_id);
 void play_from_queue();
+void play_audio(unsigned int audio_channel)
 void halt();
 
 
