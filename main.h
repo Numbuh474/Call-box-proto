@@ -29,26 +29,6 @@
 #define AUDIO_CHANNEL_TOTAL 4
 #define BUTTON_ID_INVALID 0xFF000000
 
-//GPIO definitions
-//INPUTS
-//#define GPIO_PROGRAM_BUTTON      BIT0  //P2.0
-//#define GPIO_ERASE_BUTTONS       BIT2  //P2.2
-//#define GPIO_CHAN1_REC_BUTTON    BIT4  //P2.4
-//#define GPIO_PROGRAM_BUTTON_1    BIT6  //P2.1 >> P2.6
-#define GPIO_BUTTON(x)           (BIT((int)x<<1))
-//OUTPUTS
-#define GPIO_AUDIO_REC1_ENABLE   BIT3  //P1.4 >> NONE
-#define GPIO_AUDIO_CHAN1_ENABLE  BIT2  //P1.7 >> NONE
-#define GPIO_STATUS_LED          LED_R  //BIT6  //P1.6 >> P2.1 (R)
-#define GPIO_RF_ACTIVITY_LED     LED_G  //BIT0  //P1.0 >> P2.3 (G)
-#define GPIO_ERROR_LED           LED_B  //P2.5
-
-//SPECIAL
-#define GPIO_RF_INPUT            BIT1  //P1.1 ((must stay))
-#define GPIO_USCI_SS             BIT4  //P1.4
-#define GPIO_USCI_CLK            BIT5  //P1.5
-#define GPIO_USCI_MISO           BIT6  //P1.6
-#define GPIO_USCI_MOSI           BIT7  //P1.7
 
 unsigned int toggle_led_index;
 unsigned int p2_gpio_int_state;
@@ -86,7 +66,7 @@ void init_globals(void);
 unsigned long get_multiple_call_button_ids(unsigned int num_of_ids);
 void add_to_queue(unsigned long button_id);
 void play_from_queue();
-void play_audio(unsigned int audio_channel)
+void play_audio(unsigned int audio_channel);
 void halt();
 
 
