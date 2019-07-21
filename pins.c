@@ -79,15 +79,15 @@ void setup_pins(void)
   //P1OUT   &= ~(GPIO_STATUS_LED | GPIO_INTERR);//OUTPUTS LOW
     P1DIR   = GPIO_USCI_SS | GPIO_USCI_MOSI | GPIO_USCI_CLK | GPIO_STATUS_LED;//SELECT OUTPUTS
   //P1DIR   &= ~(GPIO_USCI_MISO | GPIO_RF_INPUT);//SELECT INPUTS
-    P1SEL   = GPIO_USCI_CLK | GPIO_USCI_MOSI | GPIO_USCI_MISO;
-    P1SEL2  = GPIO_RF_INPUT;
+    P1SEL0   = GPIO_USCI_CLK | GPIO_USCI_MOSI | GPIO_USCI_MISO;
+    P1SEL1  = GPIO_RF_INPUT;
     P1REN   &=  ~(GPIO_USCI_MISO | GPIO_RF_INPUT);
     //PORT 2
     P2OUT   = 0;//outputs high
     P2DIR   = 0;//select outputs
   //P2DIR   &= GPIO_BUTTON(0) | GPIO_BUTTON(1) | GPIO_BUTTON(2) | GPIO_BUTTON(3);//select inputs
-    P2SEL   = 0;
-    P2SEL2  = 0;
+    P2SEL0   = 0;
+    P2SEL1  = 0;
     P2REN   &= ~(GPIO_BUTTON(0) | GPIO_BUTTON(1) | GPIO_BUTTON(2) | GPIO_BUTTON(3));
 }
 void set_gpio_p1_high(unsigned int gpio_pin)

@@ -2,11 +2,15 @@
 
 int main(void)
 {
+    // Disable the GPIO power-on default high-impedance mode to activate
+    // previously configured port settings
+    PM5CTL0 &= ~LOCKLPM5;
   volatile unsigned int i;
   WDTCTL = WDTPW + WDTHOLD;                 // Stop watchdog timer
   for (i=0; i<20000; i++)                   // Delay for crystal stabilization
   {
   }
+
   __enable_interrupt(); // Enable Global Interrupts
 
   //initialize system clock
@@ -101,13 +105,20 @@ void run_program(void)
 	}
 	while(prog_run);
 }
-
+#ifdef __MSP430G2553
 void init_clk()
 {
     DCOCTL = 0;
     BCSCTL1 = CALBC1_1MHZ;
     DCOCTL  = CALDCO_1MHZ;
 }
+#endif
+#ifdef __msp430fr2355_H__
+void init_clk()
+{
+    CSCTL1 = DCORSEL_0;
+}
+#endif
 
 
 

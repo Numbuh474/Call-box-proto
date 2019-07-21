@@ -32,11 +32,19 @@ void init_isd()
     isd_rx_index = 0;
     isd_tx_index = 0;
     //master mode, 3 pin(SS controlled via software), synchronous
+#ifdef __MSP430G2553__
     UCB0CTL0 = UCCKPL | UCMST | UCMODE_0 | UCSYNC;
     UCB0CTL1 = UCSSEL_2 | UCSWRST;
     //ucbclk = clk/512 (2KHz)
     UCB0BR0 = 0x00;
     UCB0BR1 = 0x01;
+#endif
+#ifdef __msp430fr2355_H__
+    UCB0CTLW0 = UCCKPL | UCMST | UCMODE_0 | UCSYNC | UCSSEL_2 | UCSWRST;
+    //ucbclk = clk/512 (2KHz)
+    UCB0BRW = 0x0100;
+#endif
+
     set_gpio_p1_high(GPIO_USCI_SS);
     //disable reset
     UCB0CTL1 &= ~(UCSWRST);
@@ -214,7 +222,7 @@ void isd_clear_interrupt()
 //send a command to the isd
 void isd_transmit(const isd_cmd_t * command, unsigned int data, unsigned int data2)
 {
-    while (IE2 & UCB0RXIE)
+    while (UCB0IE & UCRXIE)
         ;
     if (!command)
         return;
@@ -246,12 +254,12 @@ void isd_transmit(const isd_cmd_t * command, unsigned int data, unsigned int dat
     //begin transmission
     UCB0TXBUF = isd_tx[isd_tx_index++];
     //enable interrupt
-    IE2 |= UCB0TXIE | UCB0RXIE;
+    UCB0IE |= UCTXIE | UCRXIE;
 }
 //read the current row address from last transmission
 unsigned int isd_decode_current_row()
 {
-    while (IE2 & UCB0RXIE)
+    while (UCB0IE & UCRXIE)
         ;
     unsigned int result = isd_rx[1]<<3;
     result |= (isd_rx[0]&ISD_A2_0)>>5;
@@ -260,7 +268,7 @@ unsigned int isd_decode_current_row()
 //wait until the current transmission is done then return data at index
 unsigned char isd_read(unsigned int index)
 {
-    while (IE2 & UCB0RXIE)
+    while (UCB0IE & UCRXIE)
         ;
     return isd_rx[index];
 }

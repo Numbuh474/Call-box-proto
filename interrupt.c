@@ -173,6 +173,29 @@ __interrupt void TIMERA11 (void)
     }
     }
 }
+#pragma vector = USCIAB0TX_VECTOR
+__interrupt void ISDtxRdy (void)
+{
+        UCB0TXBUF = isd_tx[isd_tx_index++];
+        if (isd_tx_index >= isd_cmd_len)
+        {
+            UCB0IE &= ~UCTXIE;
+            if (!(UCB0IE & UCRXIE))
+                P1OUT |= GPIO_USCI_SS;
+        }
+}
+
+#pragma vector = USCIAB0RX_VECTOR
+__interrupt void ISDrxRdy (void)
+{
+    isd_rx[isd_rx_index++] = UCB0RXBUF;
+    if (isd_rx_index >= isd_cmd_len)
+    {
+        UCB0IE &= ~UCRXIE;
+        if (!(UCB0IE & UCTXIE))
+            P1OUT |= GPIO_USCI_SS;
+    }
+}
 #endif
 
 
@@ -241,6 +264,7 @@ __interrupt void TimerB00(void)
 {
     switch (timer_state)
     {
+    //rising edge detected while in idle state
     case idle:
     {
         TBCTL = TBSSEL_2 | ID_0 | MC_1 | TBIE | TBCLR;
@@ -252,6 +276,7 @@ __interrupt void TimerB00(void)
         turn_off_led(GPIO_RF_ACTIVITY_LED);
         break;
     }
+    //rising edge detected while in sync state
     case syn:
     {
         timer_rcv_rate  = TBCCR0;
@@ -279,9 +304,10 @@ __interrupt void TimerB00(void)
         turn_off_led(GPIO_RF_ACTIVITY_LED);
         break;
     }
+    //rising edge detected while in read state, new pulse generated
     case read:
     {
-        timer_rcv_rate = TACCR0;
+        timer_rcv_rate = TBCCR0;
         TBCCR0 = 0xffff;
         TBCTL |= TBCLR;
         TBCCR1 = TIMER_HALF_PULSE;
@@ -351,28 +377,40 @@ __interrupt void TIMERB11 (void)
     }
     }
 }
-#endif
-
-#pragma vector = USCIAB0TX_VECTOR
-__interrupt void ISDtxRdy (void)
+//#pragma vector = USCIAB0TX_VECTOR
+//__interrupt
+void ISDtxRdy (void)
 {
+
+}
+
+#pragma vector = EUSCI_B0_VECTOR
+__interrupt void ISDisr (void)
+{
+    unsigned int flag = UCB0IFG;
+    //tx ready
+    if (flag == UCTXIFG)
+    {
         UCB0TXBUF = isd_tx[isd_tx_index++];
         if (isd_tx_index >= isd_cmd_len)
         {
-            IE2 &= ~UCB0TXIE;
-            if (!(IE2 & UCB0RXIE))
+            UCB0IE &= ~UCTXIE;
+            if (!(UCB0IE & UCRXIE))
                 P1OUT |= GPIO_USCI_SS;
         }
-}
-
-#pragma vector = USCIAB0RX_VECTOR
-__interrupt void ISDrxRdy (void)
-{
-    isd_rx[isd_rx_index++] = UCB0RXBUF;
-    if (isd_rx_index >= isd_cmd_len)
+    }
+    //rx get
+    else if (flag == UCRXIFG)
     {
-        IE2 &= ~UCB0RXIE;
-        if (!(IE2 & UCB0TXIE))
-            P1OUT |= GPIO_USCI_SS;
+        isd_rx[isd_rx_index++] = UCB0RXBUF;
+        if (isd_rx_index >= isd_cmd_len)
+        {
+            UCB0IE &= ~UCRXIE;
+            if (!(UCB0IE & UCTXIE))
+                P1OUT |= GPIO_USCI_SS;
+        }
     }
 }
+#endif
+
+

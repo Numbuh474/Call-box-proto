@@ -41,7 +41,7 @@
 #define GPIO_USCI_SS            BIT4    //p1.4
 //#define GPIO_INTERRUPT          BIT5    //p1.5 TODO:
 #define GPIO_RF_INPUT           BIT6    //p1.6
-#define
+
 //PORT 2
 #define GPIO_BUTTON(x)          (BIT4<<x) //p2.4,2.5,2.6,2.7
 

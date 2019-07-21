@@ -1,7 +1,6 @@
-#include <msp430.h>
 #include <flash.h>
 
-
+#ifdef __MSP430G2553
 void init_flash(void)
 {
     // Configure Flash Timing Generator with MCLK/3
@@ -73,3 +72,51 @@ char flash_read_byte(unsigned int offset)
     
     return ret_byte;
 }
+#endif
+
+#ifdef __msp430fr2355_H__
+void init_flash()
+{
+    //password & program write protection
+    SYSCFG0 = FRWPPW | PFWP;
+    //enable reset on misread, enable power, enable power on lpm
+    GCCTL0 = UBDRSTEN | FRPWR | FRLPMPWR;
+}
+//changes the value at data_ret_ptr to the memory stored at offset. Returns 1 on success
+unsigned char flash_read (char * data_ret_ptr, unsigned int data_size, unsigned int offset)
+{
+    if (data_size + offset >= INFO_LENGTH)
+        return 0;
+
+    char * memory = INFO_START;
+    unsigned int i;
+    for (i = 0; i<data_size; i++)
+    {
+        data_ret_ptr[i] = memory[i];
+    }
+    return 1;
+}
+//returns a byte from FRAM storage
+char flash_read_byte (unsigned int offset)
+{
+    char * result = FRAM_START + offset;
+    return *result;
+}
+//saves the data at data_ptr to memory at offset. returns 1 on success
+unsigned char flash_write(char * data_ptr, unsigned int data_size, unsigned int offset)
+{
+    //password, maximum wait states
+    FRCTL0 = FRCTLPW | NWAITS_7;
+    if (data_size + offset >= INFO_LENGTH)
+        return 0;
+
+    char * memory = INFO_START;
+    unsigned int i;
+    for (i = 0; i<data_size; i++)
+    {
+        memory[i] = data_ptr[i];
+    }
+    return 1;
+    FRCTL0 = NWAITS_7;
+}
+#endif
