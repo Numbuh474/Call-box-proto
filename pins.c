@@ -77,18 +77,30 @@ void setup_pins(void)
     //PORT 1
     P1OUT   = GPIO_USCI_SS | GPIO_USCI_MOSI;//OUTPUTS HIGH
   //P1OUT   &= ~(GPIO_STATUS_LED | GPIO_INTERR);//OUTPUTS LOW
-    P1DIR   = GPIO_USCI_SS | GPIO_USCI_MOSI | GPIO_USCI_CLK | GPIO_STATUS_LED;//SELECT OUTPUTS
-  //P1DIR   &= ~(GPIO_USCI_MISO | GPIO_RF_INPUT);//SELECT INPUTS
-    P1SEL0   = GPIO_USCI_CLK | GPIO_USCI_MOSI | GPIO_USCI_MISO;
+    P1DIR   = GPIO_USCI_SS | GPIO_USCI_MOSI | GPIO_USCI_CLK | GPIO_STATUS_LED | GPIO_SIGDIR;//SELECT OUTPUTS
+  //P1DIR   &= ~(GPIO_USCI_MISO | GPIO_RF_INPUT | GPIO_RADIO_BUSY);//SELECT INPUTS
+    P1SEL0  = GPIO_USCI_CLK | GPIO_USCI_MOSI | GPIO_USCI_MISO;
     P1SEL1  = GPIO_RF_INPUT;
     P1REN   &=  ~(GPIO_USCI_MISO | GPIO_RF_INPUT);
     //PORT 2
-    P2OUT   = 0;//outputs high
-    P2DIR   = 0;//select outputs
-  //P2DIR   &= GPIO_BUTTON(0) | GPIO_BUTTON(1) | GPIO_BUTTON(2) | GPIO_BUTTON(3);//select inputs
-    P2SEL0   = 0;
-    P2SEL1  = 0;
-    P2REN   &= ~(GPIO_BUTTON(0) | GPIO_BUTTON(1) | GPIO_BUTTON(2) | GPIO_BUTTON(3));
+    P2OUT = 0;//output low
+    P2DIR = 0xFF;
+    //PORT 3
+    P3OUT = 0;
+    P3DIR = 0xFF;
+    //PORT 4
+    P4OUT = 0;
+    P4DIR = 0xFF;
+    //PORT 5
+    P5OUT = 0;
+    P5DIR = 0xFF;
+    //PORT 6
+    P6OUT   = 0;//outputs high
+    P6DIR   = 0xFF;//select outputs
+    P6DIR   &= ~(GPIO_BUTTON(0) | GPIO_BUTTON(1) | GPIO_BUTTON(2) | GPIO_BUTTON(3));//select inputs
+    P6SEL0  = 0;
+    P6SEL1  = 0;
+    P6REN   &= ~(GPIO_BUTTON(0) | GPIO_BUTTON(1) | GPIO_BUTTON(2) | GPIO_BUTTON(3));
 }
 void set_gpio_p1_high(unsigned int gpio_pin)
 {

@@ -53,7 +53,7 @@ __interrupt void TimerA01(void)
         TACCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
         TACCTL1 = CM_0 | CCIS_0 | SCS;
         TACTL = TASSEL_2 | ID_0 | MC_2;
-        //halt();
+        halt();
     }
     }
 }
@@ -127,7 +127,7 @@ __interrupt void TimerA00(void)
         TACCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
         TACCTL1 = CM_0 | CCIS_0 | SCS;
         TACTL = TASSEL_2 | ID_0 | MC_2 | TACLR;
-        //halt();
+        halt();
     }
     }
 }
@@ -253,7 +253,7 @@ __interrupt void TimerB01(void)
         TBCCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
         TBCCTL1 = CM_0 | CCIS_0 | SCS;
         TBCTL = TBSSEL_2 | ID_0 | MC_2;
-        //halt();
+        halt();
     }
     }
 }
@@ -331,7 +331,7 @@ __interrupt void TimerB00(void)
         TBCCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
         TBCCTL1 = CM_0 | CCIS_0 | SCS;
         TBCTL = TBSSEL_2 | ID_0 | MC_2;
-        //halt();
+        halt();
     }
     }
 }
@@ -339,8 +339,8 @@ __interrupt void TimerB00(void)
 #pragma vector = TIMER1_B1_VECTOR
 __interrupt void TIMERB11 (void)
 {
-    __enable_interrupt();
-    unsigned int tbiv = TB1IV;
+    //__enable_interrupt();
+    unsigned int tbiv = TB1IV & 0xF;
     switch (tbiv)
     {
     case TB1IV_TBIFG:
@@ -373,7 +373,7 @@ __interrupt void TIMERB11 (void)
     }
     default:
     {
-        halt();
+        //halt();
     }
     }
 }
@@ -388,25 +388,25 @@ void ISDtxRdy (void)
 __interrupt void ISDisr (void)
 {
     unsigned int flag = UCB0IFG;
-    //tx ready
-    if (flag == UCTXIFG)
-    {
-        UCB0TXBUF = isd_tx[isd_tx_index++];
-        if (isd_tx_index >= isd_cmd_len)
-        {
-            UCB0IE &= ~UCTXIE;
-            if (!(UCB0IE & UCRXIE))
-                P1OUT |= GPIO_USCI_SS;
-        }
-    }
     //rx get
-    else if (flag == UCRXIFG)
+    if (flag & UCRXIFG)
     {
         isd_rx[isd_rx_index++] = UCB0RXBUF;
         if (isd_rx_index >= isd_cmd_len)
         {
             UCB0IE &= ~UCRXIE;
             if (!(UCB0IE & UCTXIE))
+                P1OUT |= GPIO_USCI_SS;
+        }
+    }
+    //tx ready
+    if (flag & UCTXIFG)
+    {
+        UCB0TXBUF = isd_tx[isd_tx_index++];
+        if (isd_tx_index >= isd_cmd_len)
+        {
+            UCB0IE &= ~UCTXIE;
+            if (!(UCB0IE & UCRXIE))
                 P1OUT |= GPIO_USCI_SS;
         }
     }

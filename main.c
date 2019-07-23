@@ -7,9 +7,9 @@ int main(void)
     PM5CTL0 &= ~LOCKLPM5;
   volatile unsigned int i;
   WDTCTL = WDTPW + WDTHOLD;                 // Stop watchdog timer
-  for (i=0; i<20000; i++)                   // Delay for crystal stabilization
-  {
-  }
+  //for (i=0; i<20000; i++)                   // Delay for crystal stabilization
+  //{
+  //}
 
   __enable_interrupt(); // Enable Global Interrupts
 
@@ -52,10 +52,13 @@ void run_program(void)
     start_timera();
     start_timera1();
 
-    turn_on_led(GPIO_ERROR_LED);
-    int p = timer_begin();
-    timer_release_at(p,2000);
-    turn_off_led(GPIO_ERROR_LED);
+    int i;
+    for(i = 0; i<10; i++)
+    {
+        toggle_led(GPIO_ERROR_LED);
+        int p = timer_begin();
+        timer_release_at(p,500);
+    }
     do
 	{
 	    //handle user programming inputs
@@ -281,8 +284,13 @@ void handle_receiver_inputs_alt(void)
 
 void handle_user_inputs_alt(void)
 {
-    unsigned int p2_gpio_cur_state = P2IN;
-    unsigned int p2_gpio_debounce_state = 0;
+#ifdef __MSP430G2553__
+    unsigned int gpio_cur_state = P2IN;
+#endif
+#ifdef __msp430fr2355_H__
+    unsigned int gpio_cur_state = P6IN;
+#endif
+    unsigned int gpio_debounce_state = 0;
     p2_gpio_int_state = 0;
 
     unsigned int prog_button_pressed[4];
@@ -310,10 +318,15 @@ void handle_user_inputs_alt(void)
     //inline_delay(0x300);
     timer_delay(750);
 
-    p2_gpio_debounce_state = p2_gpio_cur_state & P2IN;
+#ifdef __MSP430G2553__
+    gpio_debounce_state = gpio_cur_state & P2IN;
+#endif
+#ifdef __msp430fr2355_H__
+    gpio_debounce_state = gpio_cur_state & P6IN;
+#endif
     for (count = 0; count< 4; count++)
     {
-        prog_button_pressed[count] = p2_gpio_debounce_state & GPIO_BUTTON(count);
+        prog_button_pressed[count] = gpio_debounce_state & GPIO_BUTTON(count);
     }
 
     if(prog_button_pressed[0] || prog_button_pressed[1] || prog_button_pressed[2] || prog_button_pressed[3])
@@ -334,10 +347,18 @@ void handle_user_inputs_alt(void)
 
             for (count = 0; count < 4; count++)
             {
+            #ifdef __MSP430G2553__
                 if(prog_button_pressed[count] && ((P2IN & GPIO_BUTTON(count)) == 0))
                 {
                     prog_button_debounce_count[count]--;
                 }
+            #endif
+            #ifdef __msp430fr2355_H__
+                if(prog_button_pressed[count] && ((P6IN & GPIO_BUTTON(count)) == 0))
+                {
+                    prog_button_debounce_count[count]--;
+                }
+             #endif
             }
 
             //enable recording if button held for 2s
@@ -494,12 +515,17 @@ void add_to_queue(unsigned long button_id)
 void play_from_queue()
 {
     //not playing, no interrupt.
-    if ( id_queue.length > 0 && !isd_is_playing() && can_play )
+    if ( id_queue.length > 0
+            && !isd_is_playing()
+            && can_play
+            && !(P1IN & GPIO_RADIO_BUSY) )
+        //TODO: change P1IN read to function
     {
         unsigned int audio_channel = get_audio_channel(queue_get(&id_queue,0));
         if (audio_channel == AUDIO_CHANNEL_NONE)
             queue_dequeue(&id_queue);
         else
+            set_gpio_p1_high(GPIO_SIGDIR);
             isd_set_play(audio_channel);
             can_play = 0;
     }
@@ -507,6 +533,7 @@ void play_from_queue()
     {
         queue_dequeue(&id_queue);
         can_play = 1;
+        set_gpio_p1_low(GPIO_SIGDIR);
     }
 }
 //stops the current isd operation and begins playback of stored audio track

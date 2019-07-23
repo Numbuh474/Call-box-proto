@@ -32,7 +32,7 @@
 //OR this with command byte to enable LED
 #define ISD_LED_EN      BIT4
 //OR this with APC byte 2 to enable EOM
-#define ISD_EOM_ENABLE  BIT3
+#define ISD_EOM_ENABLE  BIT(11)
 
 typedef struct
 {

@@ -38,12 +38,13 @@
 #define GPIO_USCI_CLK           BIT1    //p1.1
 #define GPIO_USCI_MOSI          BIT2    //p1.2
 #define GPIO_USCI_MISO          BIT3    //p1.3
-#define GPIO_USCI_SS            BIT4    //p1.4
-//#define GPIO_INTERRUPT          BIT5    //p1.5 TODO:
+#define GPIO_USCI_SS            BIT4    //p1.4 --
+#define GPIO_SIGDIR             BIT5    //p1.5 TODO:HIGH=RADIO, LOW=SPEAKER
 #define GPIO_RF_INPUT           BIT6    //p1.6
+#define GPIO_RADIO_BUSY         BIT7    //p1.7
 
 //PORT 2
-#define GPIO_BUTTON(x)          (BIT4<<x) //p2.4,2.5,2.6,2.7
+#define GPIO_BUTTON(x)          (BIT0<<x) //p6.0,6.1,6.2,6.3
 
 #endif
 ///////////////////////////////////////////////////////////

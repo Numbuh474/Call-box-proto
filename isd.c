@@ -42,9 +42,8 @@ void init_isd()
 #ifdef __msp430fr2355_H__
     UCB0CTLW0 = UCCKPL | UCMST | UCMODE_0 | UCSYNC | UCSSEL_2 | UCSWRST;
     //ucbclk = clk/512 (2KHz)
-    UCB0BRW = 0x0100;
+    UCB0BRW = 0x0009;
 #endif
-
     set_gpio_p1_high(GPIO_USCI_SS);
     //disable reset
     UCB0CTL1 &= ~(UCSWRST);
@@ -108,11 +107,12 @@ void init_isd()
     }
     default:
     {
-        isd_mem_max = ISD_MEM_1730;
-        halt();
+        isd_mem_max = ISD_MEM_1760;
+        //isd_mem_max = ISD_MEM_1730;
+        //halt();
     }
     }//switch
-    isd_mem_msg = (isd_mem_max - ISD_MEM_BEGIN)/4;
+    isd_mem_msg = (isd_mem_max - ISD_MEM_BEGIN)>>2;
     isd_ptr[0] = ISD_MEM_BEGIN;
     isd_ptr[1] = ISD_MEM_BEGIN+isd_mem_msg;
     isd_ptr[2] = ISD_MEM_BEGIN+(isd_mem_msg*2);
@@ -121,9 +121,9 @@ void init_isd()
     //get current APC settings
     isd_transmit(&rd_apc,0,0);
     //put APC register into an int
-    unsigned int apc = isd_read(3) | ISD_EOM_ENABLE;
-    apc = apc<<8;
-    apc |= isd_read(2);
+    unsigned int apc = isd_read(3);//assign high byte of APC
+    apc = (apc<<8) | isd_read(2);//assign low byte of APC
+    apc |= ISD_EOM_ENABLE;//set desired data
 
     isd_transmit(&clr_int,0,0);
     isd_wait_ready();

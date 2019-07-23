@@ -80,7 +80,9 @@ void init_flash()
     //password & program write protection
     SYSCFG0 = FRWPPW | PFWP;
     //enable reset on misread, enable power, enable power on lpm
+    FRCTL0 = FRCTLPW | NWAITS_7;
     GCCTL0 = UBDRSTEN | FRPWR | FRLPMPWR;
+    FRCTL0_H = NWAITS_7;
 }
 //changes the value at data_ret_ptr to the memory stored at offset. Returns 1 on success
 unsigned char flash_read (char * data_ret_ptr, unsigned int data_size, unsigned int offset)
@@ -88,7 +90,7 @@ unsigned char flash_read (char * data_ret_ptr, unsigned int data_size, unsigned 
     if (data_size + offset >= INFO_LENGTH)
         return 0;
 
-    char * memory = INFO_START;
+    char * memory = (char *)INFO_START;
     unsigned int i;
     for (i = 0; i<data_size; i++)
     {
@@ -99,24 +101,24 @@ unsigned char flash_read (char * data_ret_ptr, unsigned int data_size, unsigned 
 //returns a byte from FRAM storage
 char flash_read_byte (unsigned int offset)
 {
-    char * result = FRAM_START + offset;
+    char * result = (char*)(FRAM_START + offset);
     return *result;
 }
 //saves the data at data_ptr to memory at offset. returns 1 on success
 unsigned char flash_write(char * data_ptr, unsigned int data_size, unsigned int offset)
 {
     //password, maximum wait states
-    FRCTL0 = FRCTLPW | NWAITS_7;
+    //FRCTL0 = FRCTLPW | NWAITS_7;
     if (data_size + offset >= INFO_LENGTH)
         return 0;
 
-    char * memory = INFO_START;
+    char * memory = (char *)INFO_START;
     unsigned int i;
     for (i = 0; i<data_size; i++)
     {
         memory[i] = data_ptr[i];
     }
     return 1;
-    FRCTL0 = NWAITS_7;
+    //FRCTL0 = NWAITS_7;
 }
 #endif
