@@ -218,8 +218,9 @@ void timera_init(void)
 inline void start_timera()
 {
     timer_state = idle;
-    //rising edge capture
+    //rising, CCIxA, sync, capture, interrupt
     TB0CCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
+    TB0CCTL1 = CM_0 | CCIS_0 | SCS;
     TB0CTL = TBCLGRP_0 | CNTL_0 | TBSSEL_2 | ID_0 | MC_2;
 }
 void stop_timera()

@@ -205,7 +205,7 @@ __interrupt void ISDrxRdy (void)
 #pragma vector = TIMER0_B1_VECTOR
 __interrupt void TimerB01(void)
 {
-    unsigned int tbiv = TBIV;
+    unsigned int tbiv = TB0IV & 0xf;
     switch (timer_state)
     {
     case syn:

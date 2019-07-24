@@ -13,6 +13,7 @@ void TIMERA11(void);
 void TimerB01(void);
 void TimerB00(void);
 void TIMERB11(void);
+void ISDisr(void);
 #endif
 
 void ISDtxRdy(void);
