@@ -7,9 +7,9 @@ int main(void)
     PM5CTL0 &= ~LOCKLPM5;
   volatile unsigned int i;
   WDTCTL = WDTPW + WDTHOLD;                 // Stop watchdog timer
-  //for (i=0; i<20000; i++)                   // Delay for crystal stabilization
-  //{
-  //}
+  for (i=0; i<20000; i++)                   // Delay for crystal stabilization
+  {
+  }
 
   __enable_interrupt(); // Enable Global Interrupts
 
@@ -49,7 +49,6 @@ void run_program(void)
     //TODO: update to only enable timer when there are valid buttons programmed
     //check to see if there are valid buttons
     //if(button_id_list.num_of_valid_ids > 0)
-    start_timera();
     start_timera1();
 
     int i;
@@ -59,6 +58,8 @@ void run_program(void)
         int p = timer_begin();
         timer_release_at(p,500);
     }
+
+    start_timera();
     do
 	{
 	    //handle user programming inputs

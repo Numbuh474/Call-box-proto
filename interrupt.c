@@ -201,143 +201,129 @@ __interrupt void ISDrxRdy (void)
 
 ///////////////////////////////////////////////////////////////////////////////
 #ifdef __msp430fr2355_H__
-//CCR1
+
 #pragma vector = TIMER0_B1_VECTOR
-__interrupt void TimerB01(void)
+__interrupt void TimerB0(void)
 {
-    unsigned int tbiv = TB0IV & 0xf;
+    unsigned int tbiv = TB0IV;
     switch (timer_state)
     {
+    case idle:
+    {
+        //rising edge found.
+        //set overflow value
+        TB0CCR0 = TIMER_SYN_MAX_LEN;
+        //reset TBR and set r1 to capture next signal
+        TB0CTL = MC_1 | TBCLR | TBIE;
+        TB0CCTL1 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
+        TB0CCTL2 &= ~CCIE;
+        //go to syn mode.
+        timer_state = syn;
+        break;
+    }
     case syn:
     {
-        timer_state = idle;
-        //rising, CCIxA, sync, capture, interrupt
-        TBCCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
-        TBCCTL1 = CM_0 | CCIS_0 | SCS;
-        TBCTL = TBSSEL_2 | ID_0 | MC_2;
+        TB0CTL = MC_1 | TBCLR;
+        //overflow detected. Reset to idle here.
+        if (tbiv & TBIV__TBIFG)
+        {
+            timer_state = idle;
+        }
+        //capture read before overflow.
+        else if (tbiv & TBIV__TBCCR1)
+        {
+
+            //if timestamp is long enough, go to read mode.
+            if (TB0CCR1 >= TIMER_SYN_MIN_LEN)
+            {
+                //set counter to half a pulse, begin counting for compare event
+                TB0CCR2 = TIMER_HALF_PULSE;
+                TB0CCTL2 = CM_0 | OUTMOD_0 | CCIE;
+                //get pulse length measurement. timer_rcv_rate = 32/8 = 4 pulses.
+                timer_rcv_rate = TB0CCR1 >> 3;
+                //Rising edges mark the start of a new bit.
+                TB0CCTL1 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
+
+                //set variables
+                timer_rcv_index = 0;
+                timer_poll_count = 0;
+
+                timer_state = read;
+            }
+            //if too short, tb0ctl reset causes this routine to run again on next ovf/capture
+        }
         break;
     }
     case read:
     {
-        if (timer_rcv_index < TIMER_RCV_BIT_LEN && (tbiv && TB0IV_TBCCR1))
+        //on rising edge, reset timer and sampling rate, and set half pulse again
+        if ((tbiv & TBIV__TBCCR1) && timer_poll_count == 0)
         {
-            timer_push(TBCCTL0 & CCI);
-            TBCCR1 +=TIMER_PULSE;
+            TB0CTL |= TBCLR;
+            timer_rcv_rate = (TB0CCR1 + timer_rcv_rate) >> 1;
+            TB0CCR2 = TIMER_HALF_PULSE;
+            timer_state = read;
+        }
+        //on overflow reset to idle state
+        else if (tbiv & TBIV__TBIFG)
+        {
+            TB0CTL = MC_2 | TBCLR;
+            TB0CCTL1 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
+            TB0CCTL2 &= ~CCIE;
+            timer_state = idle;
+        }
+        //on compare event, take sample and advance counter by 1 pulse
+        else if (tbiv & TBIV__TBCCR2)
+        {
+            timer_push(TB0CCTL1 & CCI);
+            TB0CCR2 += TIMER_PULSE;
+            if (timer_poll_count == 0)
+            {
+                //pause counter if last sample for this bit
+                TB0CCR2 = 0;
+            }
         }
 
-        else if (timer_rcv_index >= TIMER_RCV_BIT_LEN)
+        //if buffer is full, check if valid bit sequence.
+        if (timer_rcv_index >= TIMER_RCV_BIT_LEN)
         {
             __enable_interrupt();
             if (timer_decode())
-                timer_state = flag;
+            {
+                timer_state = flag;//success
+            }
             else
             {
-                timer_state = idle;
-                //rising, CCIxA, sync, capture, interrupt
-                TBCCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
-                TBCCTL1 = CM_0 | CCIS_0 | SCS;
-                TBCTL = TBSSEL_2 | ID_0 | MC_2;
+                TB0CTL = MC_2 | TBCLR;
+                TB0CCTL1 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
+                TB0CCTL2 &= ~CCIE;
+                timer_state = idle;//failure
             }
         }
         break;
     }
+    //stop timer
     case flag:
-    {
-        TBCTL = MC_0 | TBCLR;
-        break;
-    }
-    default:
-    {
-        timer_state = idle;
-        //rising, CCIxA, sync, capture, interrupt
-        TBCCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
-        TBCCTL1 = CM_0 | CCIS_0 | SCS;
-        TBCTL = TBSSEL_2 | ID_0 | MC_2;
-        halt();
-    }
-    }
-}
-
-//TACCR0
-#pragma vector = TIMER0_B0_VECTOR
-__interrupt void TimerB00(void)
-{
-    switch (timer_state)
-    {
-    //rising edge detected while in idle state
-    case idle:
-    {
-        TBCTL = TBSSEL_2 | ID_0 | MC_1 | TBIE | TBCLR;
-        timer_state = syn;
-        TBCCR0 = TIMER_SYN_MAX_LEN;
-        //rising edge, CCIxA, sync, capture, interrupt
-        TBCCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
-        TBCCTL1 = CM_0 | CCIS_0 | SCS;
-        turn_off_led(GPIO_RF_ACTIVITY_LED);
-        break;
-    }
-    //rising edge detected while in sync state
-    case syn:
-    {
-        timer_rcv_rate  = TBCCR0;
-        if (timer_rcv_rate >= TIMER_SYN_MIN_LEN)
-        {
-            TBCTL = TBSSEL_2 | ID_0 | MC_2 | TBCLR | TBIE;
-            timer_rcv_rate = timer_rcv_rate >> 3;
-            TBCCR1 = TIMER_HALF_PULSE;
-            //rising, CCIxA, sync, capture, interrupt
-            TBCCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
-            //no capture, CCIxA, sync, compare, interrupt
-            TBCCTL1 = CM_3 | CCIS_0 | SCS |/*| CAP |*/ CCIE;
-            timer_rcv_index = 0;
-            timer_poll_count = 0;
-            timer_state = read;
-        }
-        else
-        {
-            timer_state = idle;
-            //rising, CCIxA, sync, capture, interrupt
-            TBCCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
-            TBCCTL1 = CM_0 | CCIS_0 | SCS;
-            TBCTL = TBSSEL_2 | ID_0 | MC_2;
-        }
-        turn_off_led(GPIO_RF_ACTIVITY_LED);
-        break;
-    }
-    //rising edge detected while in read state, new pulse generated
-    case read:
-    {
-        timer_rcv_rate = TBCCR0;
-        TBCCR0 = 0xffff;
-        TBCTL |= TBCLR;
-        TBCCR1 = TIMER_HALF_PULSE;
-        break;
-    }
-    case flag:
-    {
-        TBCTL = MC_0 | TBCLR;
-        break;
-    }
     case off:
     {
-        TBCTL = MC_0 | TBCLR;
+        //stop timer
+        TB0CTL = MC_0;
         break;
     }
+
     default:
     {
+        //reset to idle.
+        TB0CTL = MC_2 | TBCLR;
+        TB0CCTL1 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
+        TB0CCTL2 &= ~CCIE;
         timer_state = idle;
-        TBCTL = MC_0 | TBCLR;
-        //rising, CCIxA, sync, capture, interrupt
-        TBCCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
-        TBCCTL1 = CM_0 | CCIS_0 | SCS;
-        TBCTL = TBSSEL_2 | ID_0 | MC_2;
-        halt();
     }
     }
 }
 
 #pragma vector = TIMER1_B1_VECTOR
-__interrupt void TIMERB11 (void)
+__interrupt void TIMERB1 (void)
 {
     //__enable_interrupt();
     unsigned int tbiv = TB1IV & 0xF;
@@ -379,10 +365,6 @@ __interrupt void TIMERB11 (void)
 }
 //#pragma vector = USCIAB0TX_VECTOR
 //__interrupt
-void ISDtxRdy (void)
-{
-
-}
 
 #pragma vector = EUSCI_B0_VECTOR
 __interrupt void ISDisr (void)
