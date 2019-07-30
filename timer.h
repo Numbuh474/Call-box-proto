@@ -7,7 +7,6 @@
 #define TIMER_SYN_MIN_LEN (32*300)
 #define TIMER_RCV_BIT_LEN 24
 #define TIMER_RCV_TELEGRAM 3
-#define TIMER_POLL_DIVISIONS    4
 #define TIMER_HALF_PULSE (timer_rcv_rate>>3)
 #define TIMER_PULSE (timer_rcv_rate>>2)
 #define TIMER_RCV_ZERO    0b1000
@@ -25,7 +24,6 @@ typedef enum
 
 char timer_rcv_decode [TIMER_RCV_BIT_LEN];
 char timer_rcv_buffer [TIMER_RCV_BIT_LEN];
-unsigned int timer_rcv_k[TIMER_RCV_BIT_LEN];
 unsigned int timer_msec [TIMER_RESOURCE];
 
 unsigned long timer_rcv_transmission;

@@ -2,6 +2,11 @@
 
 void timer_push(unsigned int signal)
 {
+    //clear index on new word
+    if(timer_poll_count==0)
+    {
+        timer_rcv_buffer[timer_rcv_index]= 0;
+    }
     timer_rcv_buffer[timer_rcv_index] =
          timer_rcv_buffer[timer_rcv_index] << 1;
     //if signal is true, push set bit. else push clear bit
@@ -14,18 +19,19 @@ void timer_push(unsigned int signal)
     {
         turn_off_led(GPIO_RF_ACTIVITY_LED);
     }
-    timer_poll_count++;
-    if (timer_poll_count>=TIMER_POLL_DIVISIONS)
+
+    if (timer_poll_count>=TIMER_RCV_TELEGRAM)
     {
          timer_poll_count = 0;
          timer_rcv_index++;
-         timer_rcv_buffer[timer_rcv_index]= 0;
-
+    }
+    else
+    {
+        timer_poll_count++;
     }
 }
 int timer_decode()
 {
-    __enable_interrupt();
     unsigned int i = 0, parity_fail = 0;
     timer_rcv_transmission = 0;
     for(i = 0; i<TIMER_RCV_BIT_LEN; i++)
@@ -202,8 +208,8 @@ void start_timera1()
 void timera_init(void)
 {
     TB0CTL = TBCLGRP_0 | CNTL_0 | TBSSEL_2 | ID_0 | MC_0 | TBCLR | TBIE;
-    TB0CCTL1 = CM_1 | CCIS_0 | SCS | CAP | OUTMOD_0;
-    TB0CCTL2 = CM_0 | CCIS_0 | SCS;
+    TB0CCTL0 = CM_1 | CCIS_0 | SCS | CAP | OUTMOD_0;
+    TB0CCTL1 = CM_0 | CCIS_0 | SCS;
 
     timer_state = off;
     timer_rcv_periods = 0;
@@ -213,8 +219,8 @@ inline void start_timera()
 {
     timer_state = idle;
     //rising, CCIxA, sync, capture, interrupt
-    TB0CCTL1 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
-    TB0CCTL2 = CM_0 | CCIS_0 | SCS;
+    TB0CCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
+    TB0CCTL1 = CM_0 | CCIS_0 | SCS;
     TB0CTL = TBCLGRP_0 | CNTL_0 | TBSSEL_2 | ID_0 | MC_2;
 }
 void stop_timera()

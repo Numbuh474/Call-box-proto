@@ -7,9 +7,9 @@ int main(void)
     PM5CTL0 &= ~LOCKLPM5;
   volatile unsigned int i;
   WDTCTL = WDTPW + WDTHOLD;                 // Stop watchdog timer
-  for (i=0; i<20000; i++)                   // Delay for crystal stabilization
-  {
-  }
+  //for (i=0; i<20000; i++)                   // Delay for crystal stabilization
+  //{
+  //}
 
   __enable_interrupt(); // Enable Global Interrupts
 
@@ -52,6 +52,13 @@ void run_program(void)
     start_timera();
     start_timera1();
 
+    int i;
+    for(i = 0; i<10; i++)
+    {
+        toggle_led(GPIO_ERROR_LED);
+        int p = timer_begin();
+        timer_release_at(p,500);
+    }
     do
 	{
 	    //handle user programming inputs
