@@ -42,7 +42,7 @@ void init_isd()
 #ifdef __msp430fr2355_H__
     UCB0CTLW0 = UCCKPL | UCMST | UCMODE_0 | UCSYNC | UCSSEL_2 | UCSWRST;
     //ucbclk = clk/512 (2KHz)
-    UCB0BRW = 0x0009;
+    UCB0BRW = 0x0007;
 #endif
     set_gpio_p1_high(GPIO_USCI_SS);
     //disable reset
