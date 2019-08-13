@@ -53,7 +53,7 @@ __interrupt void TimerA01(void)
         TACCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
         TACCTL1 = CM_0 | CCIS_0 | SCS;
         TACTL = TASSEL_2 | ID_0 | MC_2;
-        halt();
+        halt(timerRFError);
     }
     }
 }
@@ -127,7 +127,7 @@ __interrupt void TimerA00(void)
         TACCTL0 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
         TACCTL1 = CM_0 | CCIS_0 | SCS;
         TACTL = TASSEL_2 | ID_0 | MC_2 | TACLR;
-        halt();
+        halt(timerRFError);
     }
     }
 }
@@ -169,7 +169,7 @@ __interrupt void TIMERA11 (void)
     }
     default:
     {
-        halt();
+        halt(timerError);
     }
     }
 }
@@ -202,101 +202,123 @@ __interrupt void ISDrxRdy (void)
 ///////////////////////////////////////////////////////////////////////////////
 #ifdef __msp430fr2355_H__
 
+#pragma vector = TIMER0_B0_VECTOR
+__interrupt void TimerB0T(void)
+{
+    halt(timerRFError);
+}
 #pragma vector = TIMER0_B1_VECTOR
 __interrupt void TimerB0(void)
 {
-    unsigned int tbiv = TB0IV;
+    unsigned int tbiv = TB0IV & 0x0F;
     switch (timer_state)
     {
     case idle:
     {
         //rising edge found.
         //set overflow value
-        TB0CCR0 = TIMER_SYN_MAX_LEN;
+            //TB0CCR0 = TIMER_SYN_MAX_LEN;
         //reset TBR and set r1 to capture next signal
-        TB0CTL = MC_1 | TBCLR | TBIE;
-        TB0CCTL1 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
-        TB0CCTL2 &= ~CCIE;
+        TB0CTL = MC_0;
+        TB0CTL |= TBCLR;
+        TB0CTL = TBSSEL_2 | ID_0 | MC_1 | TBIE;
         //go to syn mode.
         timer_state = syn;
         break;
     }
     case syn:
     {
-        TB0CTL = MC_1 | TBCLR;
-        //overflow detected. Reset to idle here.
-        if (tbiv & TBIV__TBIFG)
-        {
-            timer_state = idle;
-        }
+        TB0CTL = MC_0;
+        TB0CTL |= TBCLR;
+        TB0CTL = TBSSEL_2 | ID_0 | MC_1 | TBIE;
         //capture read before overflow.
-        else if (tbiv & TBIV__TBCCR1)
+        if (tbiv == TBIV__TBCCR1)
         {
-
             //if timestamp is long enough, go to read mode.
             if (TB0CCR1 >= TIMER_SYN_MIN_LEN)
             {
-                //set counter to half a pulse, begin counting for compare event
-                TB0CCR2 = TIMER_HALF_PULSE;
-                TB0CCTL2 = CM_0 | OUTMOD_0 | CCIE;
                 //get pulse length measurement. timer_rcv_rate = 32/8 = 4 pulses.
                 timer_rcv_rate = TB0CCR1 >> 3;
                 //Rising edges mark the start of a new bit.
-                TB0CCTL1 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
+                //TB0CCTL1 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
+                //set counter to 1+half a pulse (push), begin counting for compare event
+                TB0CCR2 = TIMER_HALF_PULSE+TIMER_PULSE;
+                TB0CCTL2 = CM_0 | OUTMOD_0 | CCIE;
 
                 //set variables
                 timer_rcv_index = 0;
                 timer_poll_count = 0;
+                timer_rcv_buffer[0] = 0;
 
                 timer_state = read;
+                timer_push(1);
             }
-            //if too short, tb0ctl reset causes this routine to run again on next ovf/capture
+            //if too short, tb0ctl reset at top causes this routine to run again on next ovf/capture
+        }
+
+        //overflow detected. Reset to idle here.
+        else if (tbiv == TBIV__TBIFG)
+        {
+            TB0CTL = MC_0;
+            TB0CTL |= TBCLR;
+            TB0CTL = TBSSEL_2 | ID_0 | MC_1;
+            timer_state = idle;
         }
         break;
     }
     case read:
     {
-        //on rising edge, reset timer and sampling rate, and set half pulse again
-        if ((tbiv & TBIV__TBCCR1) && timer_poll_count == 0)
-        {
-            TB0CTL |= TBCLR;
-            timer_rcv_rate = (TB0CCR1 + timer_rcv_rate) >> 1;
-            TB0CCR2 = TIMER_HALF_PULSE;
-            timer_state = read;
-        }
-        //on overflow reset to idle state
-        else if (tbiv & TBIV__TBIFG)
-        {
-            TB0CTL = MC_2 | TBCLR;
-            TB0CCTL1 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
-            TB0CCTL2 &= ~CCIE;
-            timer_state = idle;
-        }
         //on compare event, take sample and advance counter by 1 pulse
-        else if (tbiv & TBIV__TBCCR2)
+        if (tbiv == TBIV__TBCCR2)
         {
             timer_push(TB0CCTL1 & CCI);
             TB0CCR2 += TIMER_PULSE;
-            if (timer_poll_count == 0)
+            /*if (timer_poll_count == 0)
             {
-                //pause counter if last sample for this bit
-                TB0CCR2 = 0;
-            }
+                TB0CCR2 = 0xFFFF;
+            }*/
+        }
+        //on rising edge, reset timer and sampling rate, and set half pulse again
+        else if (    tbiv == TBIV__TBCCR1
+                /*&& TB0CCR1 >= TIMER_SYN_MIN_LEN/32*4
+                && TB0CCR1 <= TIMER_SYN_MIN_LEN/32*4    */)
+        {
+            TB0CTL = MC_0;
+            TB0CTL |= TBCLR;
+            TB0CTL = TBSSEL_2 | ID_0 | MC_1 | TBIE;
+
+            //timer_rcv_rate = (TB0CCR1+timer_rcv_rate)>>1;
+
+            if (timer_poll_count == TIMER_RCV_SAMPLES-1)
+                timer_push(0);
+
+            timer_push(1);
+            TB0CCR2 = TIMER_PULSE+TIMER_HALF_PULSE;
+        }
+        //on overflow save data and reset to idle
+        else if (tbiv == TBIV__TBIFG)
+        {
+            timer_decode();
+            TB0CTL = MC_0;
+            TB0CTL |= TBCLR;
+            TB0CTL = TBSSEL_2 | ID_0 | MC_1;
+            TB0CCTL2 &= ~(CCIE);
+            timer_state = idle;
         }
 
         //if buffer is full, check if valid bit sequence.
         if (timer_rcv_index >= TIMER_RCV_BIT_LEN)
         {
-            __enable_interrupt();
+            //__enable_interrupt();
             if (timer_decode())
             {
                 timer_state = flag;//success
             }
             else
             {
-                TB0CTL = MC_2 | TBCLR;
-                TB0CCTL1 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
-                TB0CCTL2 &= ~CCIE;
+                TB0CTL = MC_0;
+                TB0CTL |= TBCLR;
+                TB0CTL = TBSSEL_2 | ID_0 | MC_1;
                 timer_state = idle;//failure
             }
         }
@@ -314,9 +336,11 @@ __interrupt void TimerB0(void)
     default:
     {
         //reset to idle.
-        TB0CTL = MC_2 | TBCLR;
+        TB0CTL = MC_0;
+        TB0CTL |= TBCLR;
+        TB0CTL = TBSSEL_2 | ID_0 | MC_1;
         TB0CCTL1 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
-        TB0CCTL2 &= ~CCIE;
+        TB0CCTL2 = CM_0;
         timer_state = idle;
     }
     }
@@ -326,10 +350,14 @@ __interrupt void TimerB0(void)
 __interrupt void TIMERB1 (void)
 {
     //__enable_interrupt();
-    unsigned int tbiv = TB1IV & 0xF;
-    switch (tbiv)
+    unsigned int tbiv = TB1IV & 0x0F;
+    if (tbiv == TBIV__TBCCR1)
     {
-    case TB1IV_TBIFG:
+        CLEAR_FLAG(timer_enable,0);
+        TB1CCTL1 &= ~(CCIE);
+    }
+
+    else if (tbiv == TBIV__TBIFG)
     {
         unsigned int i;
         if (FLAG(timer_enable,0))
@@ -349,18 +377,10 @@ __interrupt void TIMERB1 (void)
             if (FLAG(timer_enable,i))
                 timer_msec[i]++;
         }
-        break;
     }
-    case TB1IV_TBCCR1:
+    else
     {
-        CLEAR_FLAG(timer_enable,0);
-        TB1CCTL1 &= ~(CCIE);
-        break;
-    }
-    default:
-    {
-        //halt();
-    }
+        //halt(timerError);
     }
 }
 //#pragma vector = USCIAB0TX_VECTOR

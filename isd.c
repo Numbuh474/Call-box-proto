@@ -31,6 +31,7 @@ void init_isd()
     isd_cmd_len = 0;
     isd_rx_index = 0;
     isd_tx_index = 0;
+    isd_timeout = 0;
     //master mode, 3 pin(SS controlled via software), synchronous
 #ifdef __MSP430G2553__
     UCB0CTL0 = UCCKPL | UCMST | UCMODE_0 | UCSYNC;
@@ -42,7 +43,7 @@ void init_isd()
 #ifdef __msp430fr2355_H__
     UCB0CTLW0 = UCCKPL | UCMST | UCMODE_0 | UCSYNC | UCSSEL_2 | UCSWRST;
     //ucbclk = clk/512 (2KHz)
-    UCB0BRW = 0x0007;
+    UCB0BRW = 0x0009;
 #endif
     set_gpio_p1_high(GPIO_USCI_SS);
     //disable reset
@@ -133,9 +134,13 @@ void init_isd()
 //wait until isd can accept another command
 void isd_wait_ready()
 {
+    isd_timeout = 0x1000;
     do
     {
         isd_transmit(&rd_status,0,0);
+        isd_timeout--;
+        if (!isd_timeout)
+            halt(isdTimeoutError);
     }   while(!(isd_read(2)&ISD_RDY));
 }
 //send a signal and ensure it was read correctly.
@@ -222,17 +227,22 @@ void isd_clear_interrupt()
 //send a command to the isd
 void isd_transmit(const isd_cmd_t * command, unsigned int data, unsigned int data2)
 {
+    unsigned int i = 0x1000;
     while (UCB0IE & UCRXIE)
-        ;
+    {
+        i--;
+        if (!i)
+            halt(isdStallError);
+    }
     if (!command)
         return;
-    unsigned int i;
-    for (i=0; i<7; i++)
+
+    for (i = 0; i < 7; i++)
     {
         isd_tx[i] = 0;
         isd_rx[i] = 0;
     }
-    isd_tx[0] = command->cmd | BIT4;
+    isd_tx[0] = command->cmd | ISD_LED_ENABLE;
     if (command->fields==1)
     {
         isd_tx[1] = (char)data;
@@ -259,8 +269,13 @@ void isd_transmit(const isd_cmd_t * command, unsigned int data, unsigned int dat
 //read the current row address from last transmission
 unsigned int isd_decode_current_row()
 {
+    isd_timeout = 0x1000;
     while (UCB0IE & UCRXIE)
-        ;
+    {
+        isd_timeout--;
+        if (!isd_timeout)
+            halt(isdStallError);
+    }
     unsigned int result = isd_rx[1]<<3;
     result |= (isd_rx[0]&ISD_A2_0)>>5;
     return result;
@@ -268,7 +283,12 @@ unsigned int isd_decode_current_row()
 //wait until the current transmission is done then return data at index
 unsigned char isd_read(unsigned int index)
 {
+    isd_timeout = 0x1000;
     while (UCB0IE & UCRXIE)
-        ;
+    {
+        isd_timeout--;
+        if (!isd_timeout)
+            halt(isdStallError);
+    }
     return isd_rx[index];
 }

@@ -3,10 +3,10 @@
 void timer_push(unsigned int signal)
 {
     //clear index on new word
-    if(timer_poll_count==0)
+    /*if(timer_poll_count==0)
     {
         timer_rcv_buffer[timer_rcv_index]= 0;
-    }
+    }*/
     timer_rcv_buffer[timer_rcv_index] =
          timer_rcv_buffer[timer_rcv_index] << 1;
     //if signal is true, push set bit. else push clear bit
@@ -19,11 +19,11 @@ void timer_push(unsigned int signal)
     {
         turn_off_led(GPIO_RF_ACTIVITY_LED);
     }
-    timer_poll_count ++;
-    if (timer_poll_count >= TIMER_RCV_SAMPLES)
+    if (++timer_poll_count >= TIMER_RCV_SAMPLES)
     {
          timer_poll_count = 0;
          timer_rcv_index++;
+         timer_rcv_buffer[timer_rcv_index] = 0;
     }
 }
 int timer_decode()
@@ -36,14 +36,14 @@ int timer_decode()
         //try parity check.
         if(timer_rcv_periods > 0)
         {
-            if(timer_rcv_buffer[i]==TIMER_RCV_ZERO )
+            if(timer_rcv_buffer[i] == TIMER_RCV_ZERO )
             {
-                if (timer_rcv_decode[i]!=TIMER_RCV_ZERO)
+                if (timer_rcv_decode[i] !=TIMER_RCV_ZERO)
                     parity_fail = 1;
             }
-            else if (timer_rcv_buffer[i]==TIMER_RCV_ONE)
+            else if (timer_rcv_buffer[i] == TIMER_RCV_ONE)
             {
-                if (timer_rcv_decode[i]!=TIMER_RCV_ONE)
+                if (timer_rcv_decode[i] != TIMER_RCV_ONE)
                     parity_fail = 1;
             }
         }
@@ -203,9 +203,12 @@ void start_timera1()
 #ifdef __msp430fr2355_H__
 void timera_init(void)
 {
-    TB0CTL = TBCLGRP_0 | CNTL_0 | TBSSEL_2 | ID_0 | MC_0 | TBCLR | TBIE;
-    TB0CCTL1 = CM_1 | CCIS_0 | SCS | CAP | OUTMOD_0;
-    TB0CCTL2 = CM_0 | CCIS_0 | SCS;
+    //Select SMCLK, no count, clear TBR, enable interrupt
+    TB0CTL = TBSSEL_2 | MC_0 | TBCLR | TBIE;
+    //rising edge capture, select CCI1A, sync source, capture mode
+    TB0CCTL1 = CM_1 | CCIS_0 | SCS | CAP;
+    //no capture (compare mode off)
+    TB0CCTL2 = CM_0;
 
     timer_state = off;
     timer_rcv_periods = 0;
@@ -214,14 +217,17 @@ void timera_init(void)
 inline void start_timera()
 {
     timer_state = idle;
-    //rising, CCIxA, sync, capture, interrupt
+    //rising, CCIxA, sync, capture, enable
     TB0CCTL1 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
-    TB0CCTL2 = CM_0 | CCIS_0 | SCS;
-    TB0CTL = TBCLGRP_0 | CNTL_0 | TBSSEL_2 | ID_0 | MC_2;
+    //disable
+    TB0CCTL2 = CM_0;
+    TB0CCR0 = TIMER_SYN_MAX_LEN;
+    TB0CTL = TBSSEL_2 | ID_0 | MC_1;
 }
 void stop_timera()
 {
     TB0CTL = TBCLGRP_0 | CNTL_0 | TBSSEL_2 | ID_0 | MC_0 | TBCLR;
+    timer_state = off;
 }
 
 void start_timera1()

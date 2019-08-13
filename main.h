@@ -29,6 +29,18 @@
 #define AUDIO_CHANNEL_TOTAL 4
 #define BUTTON_ID_INVALID 0xFF000000
 
+typedef enum
+{
+    noError,
+    undefinedError,
+    memoryReadError,
+    memoryWriteError,
+    isdTransmitError,
+    isdTimeoutError,
+    isdStallError,
+    timerError,
+    timerRFError,
+} error_t;
 
 unsigned int toggle_led_index;
 unsigned int p2_gpio_int_state;
@@ -67,7 +79,7 @@ unsigned long get_multiple_call_button_ids(unsigned int num_of_ids);
 void add_to_queue(unsigned long button_id);
 void play_from_queue();
 void play_audio(unsigned int audio_channel);
-void halt();
+void halt(error_t error);
 
 
 #endif

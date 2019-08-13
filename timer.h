@@ -12,7 +12,7 @@
 #define TIMER_RCV_SAMPLES 4
 #define TIMER_RCV_ZERO    0b1000
 #define TIMER_RCV_ONE     0b1110
-#define TIMER_RESOURCE    8
+#define TIMER_RESOURCE    5
 
 typedef enum
 {

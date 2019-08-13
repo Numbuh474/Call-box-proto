@@ -7,14 +7,13 @@ int main(void)
     PM5CTL0 &= ~LOCKLPM5;
   volatile unsigned int i;
   WDTCTL = WDTPW + WDTHOLD;                 // Stop watchdog timer
+  //initialize system clock
+  init_clk();
   for (i=0; i<20000; i++)                   // Delay for crystal stabilization
   {
   }
 
   __enable_interrupt(); // Enable Global Interrupts
-
-  //initialize system clock
-  init_clk();
 
   //make sure all global variables are initialized to known value
   init_globals();
@@ -51,13 +50,18 @@ void run_program(void)
     //if(button_id_list.num_of_valid_ids > 0)
     start_timera1();
 
-    int i;
-    for(i = 0; i<10; i++)
+    /*int i;
+    for(i = 0; i<6; i++)
     {
         toggle_led(GPIO_ERROR_LED);
         int p = timer_begin();
         timer_release_at(p,500);
     }
+    for(i = 0; i < 16; i++)
+    {
+        toggle_led(GPIO_ERROR_LED);
+        timer_delay(0xf424);
+    }*/
 
     start_timera();
     do
@@ -208,7 +212,7 @@ void load_button_ids(void)
         if(flash_write((char *)&button_id_list, FLASH_BLOCK_SIZE, FLASH_BLOCK_VERSION_OFFSET) == 0)
         {
             //TODO: add error state
-            halt();
+            halt(memoryReadError);
         }
     }
 }
@@ -218,7 +222,7 @@ void write_button_ids(void)
     if(flash_write((char *)&button_id_list, FLASH_BLOCK_SIZE, FLASH_BLOCK_VERSION_OFFSET) == 0)
     {
         //TODO: add error state (flash status LED at a certain rate)
-        halt();
+        halt(memoryWriteError);
     }
 }
 
@@ -235,7 +239,7 @@ void erase_button_ids(void)
     if(flash_write((char *)&button_id_list, FLASH_BLOCK_SIZE, FLASH_BLOCK_VERSION_OFFSET) == 0)
     {
         //TODO: add error state (flash status LED at a certain rate)
-        halt();
+        halt(memoryWriteError);
     }
 
 }
@@ -265,14 +269,14 @@ void handle_receiver_inputs_alt(void)
     unsigned long data_received = 0;
     if(timer_state==flag && program_button_active == 0)
     {
-        stop_timera();
+        //stop_timera();
         data_received = timer_rcv_transmission;
         add_to_queue(data_received);
         start_timera();
     }
     else if (timer_state == flag && program_button_active)
     {
-        stop_timera();
+        //stop_timera();
         data_received = timer_rcv_transmission;
         if (data_received != BUTTON_ID_INVALID)
         {
@@ -365,7 +369,7 @@ void handle_user_inputs_alt(void)
             //enable recording if button held for 2s
             if (timer_check(prog_button_timer_id) > 2000 && button_counter == 0 && !is_recording)
             {
-                stop_timera();
+                //stop_timera();
                 turn_on_led(GPIO_RF_ACTIVITY_LED);
                 is_recording = 1;
                 isd_stop();
@@ -458,7 +462,7 @@ void handle_user_inputs_alt(void)
             program_mode_active = 1;
 
             //stop receiver
-            stop_timera();
+            //stop_timera();
             //turn_off_p1_led(GPIO_RF_ACTIVITY_LED);
 
             //enable button record
@@ -545,11 +549,10 @@ void play_audio(unsigned int audio_channel)
     can_play = 0;
 }
 
-void halt()
+void halt(error_t error)
 {
     turn_on_led(GPIO_ERROR_LED);
-    volatile int i = 0;
-    while(!i)
+    while(error)
         ;
     //turn_off_led(GPIO_ERROR_LED);
 }

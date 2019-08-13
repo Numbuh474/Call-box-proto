@@ -30,7 +30,7 @@
 #define ISD_ERASE       BIT1
 #define ISD_RDY         BIT0
 //OR this with command byte to enable LED
-#define ISD_LED_EN      BIT4
+#define ISD_LED_ENABLE  BIT4
 //OR this with APC byte 2 to enable EOM
 #define ISD_EOM_ENABLE  BIT(11)
 
@@ -51,6 +51,8 @@ unsigned int isd_mem_msg;
 volatile unsigned int isd_rx_index;
 volatile unsigned int isd_tx_index;
 volatile unsigned char isd_cmd_len;
+volatile unsigned int isd_timeout;
+
 
 
 void isd_transmit(const isd_cmd_t* command, unsigned int data, unsigned int data2);
