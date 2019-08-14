@@ -9,6 +9,7 @@ int main(void)
   WDTCTL = WDTPW + WDTHOLD;                 // Stop watchdog timer
   //initialize system clock
   init_clk();
+
   for (i=0; i<20000; i++)                   // Delay for crystal stabilization
   {
   }
@@ -50,7 +51,7 @@ void run_program(void)
     //if(button_id_list.num_of_valid_ids > 0)
     start_timera1();
 
-    /*int i;
+    int i;
     for(i = 0; i<6; i++)
     {
         toggle_led(GPIO_ERROR_LED);
@@ -61,7 +62,7 @@ void run_program(void)
     {
         toggle_led(GPIO_ERROR_LED);
         timer_delay(0xf424);
-    }*/
+    }
 
     start_timera();
     do
@@ -124,7 +125,7 @@ void init_clk()
 #ifdef __msp430fr2355_H__
 void init_clk()
 {
-    CSCTL1 = DCORSEL_0;
+    CSCTL1 = DCORSEL_3;
 }
 #endif
 

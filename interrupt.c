@@ -241,8 +241,8 @@ __interrupt void TimerB0(void)
                 timer_rcv_rate = TB0CCR1 >> 3;
                 //Rising edges mark the start of a new bit.
                 //TB0CCTL1 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
-                //set counter to 1+half a pulse (push), begin counting for compare event
-                TB0CCR2 = TIMER_HALF_PULSE+TIMER_PULSE;
+                //set counter to half a pulse (!push), begin counting for compare event
+                TB0CCR2 = TIMER_PULSE;
                 TB0CCTL2 = CM_0 | OUTMOD_0 | CCIE;
 
                 //set variables
@@ -250,8 +250,8 @@ __interrupt void TimerB0(void)
                 timer_poll_count = 0;
                 timer_rcv_buffer[0] = 0;
 
-                timer_state = read;
                 timer_push(1);
+                timer_state = read;
             }
             //if too short, tb0ctl reset at top causes this routine to run again on next ovf/capture
         }
@@ -273,10 +273,10 @@ __interrupt void TimerB0(void)
         {
             timer_push(TB0CCTL1 & CCI);
             TB0CCR2 += TIMER_PULSE;
-            /*if (timer_poll_count == 0)
+            if (timer_poll_count == 0)
             {
-                TB0CCR2 = 0xFFFF;
-            }*/
+                TB0CCR2 = 0;
+            }
         }
         //on rising edge, reset timer and sampling rate, and set half pulse again
         else if (    tbiv == TBIV__TBCCR1
@@ -292,8 +292,8 @@ __interrupt void TimerB0(void)
             if (timer_poll_count == TIMER_RCV_SAMPLES-1)
                 timer_push(0);
 
-            timer_push(1);
-            TB0CCR2 = TIMER_PULSE+TIMER_HALF_PULSE;
+            //timer_push(1);
+            TB0CCR2 = TIMER_HALF_PULSE;
         }
         //on overflow save data and reset to idle
         else if (tbiv == TBIV__TBIFG)
@@ -351,13 +351,16 @@ __interrupt void TIMERB1 (void)
 {
     //__enable_interrupt();
     unsigned int tbiv = TB1IV & 0x0F;
-    if (tbiv == TBIV__TBCCR1)
+    switch (tbiv)
+    {
+    case 0:
+    case TBIV__TBCCR1:
     {
         CLEAR_FLAG(timer_enable,0);
         TB1CCTL1 &= ~(CCIE);
+        break;
     }
-
-    else if (tbiv == TBIV__TBIFG)
+    case TBIV__TBIFG:
     {
         unsigned int i;
         if (FLAG(timer_enable,0))
@@ -365,10 +368,11 @@ __interrupt void TIMERB1 (void)
             if (timer_msec[0]==0)
             {
                 TB1CCTL1 = CM_0 | CCIS_2 | CCIE;
-                TB1CTL |= TBCLR;
-                TB1CTL = TBSSEL_2 | ID_0 | MC_1 | TBIE;
+                //TB1CTL = MC_0;
+                //TB1CTL |= TBCLR;
+                //TB1CTL = TBSSEL_2 | CNTL_2 | ID_0 | MC_2 | TBIE;
             }
-            if (timer_msec[0])
+            else //if (timer_msec[0])
                 timer_msec[0]--;
         }
 
@@ -377,10 +381,12 @@ __interrupt void TIMERB1 (void)
             if (FLAG(timer_enable,i))
                 timer_msec[i]++;
         }
+        break;
     }
-    else
+    default:
     {
-        //halt(timerError);
+        halt(timerError);
+    }
     }
 }
 //#pragma vector = USCIAB0TX_VECTOR

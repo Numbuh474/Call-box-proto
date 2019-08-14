@@ -85,19 +85,19 @@ int timer_begin( void )
 {
     if (!timer_sem)
         return 0;
-    unsigned int i;
     int id = 0;
-    for (i = 1; id==0 && i<TIMER_RESOURCE; i++)
+    for (id = 1; id<TIMER_RESOURCE; id++)
     {
-        if (!FLAG(timer_enable,i))
+        if (!FLAG(timer_enable,id))
         {
             timer_sem--;
-            id = 100+i;
-            timer_msec[i]=0;
-            SET_FLAG(timer_enable, i);
+            timer_msec[id]=0;
+            SET_FLAG(timer_enable, id);
+            id += 100;
+            return id;
         }
     }
-    return id;
+    return 0;
 }
 //check on a timer without deactivating it
 unsigned int timer_check(int id)
@@ -203,8 +203,9 @@ void start_timera1()
 #ifdef __msp430fr2355_H__
 void timera_init(void)
 {
+    TB0EX0 = TBIDEX_3;
     //Select SMCLK, no count, clear TBR, enable interrupt
-    TB0CTL = TBSSEL_2 | MC_0 | TBCLR | TBIE;
+    TB0CTL = TBSSEL_2 | ID_0 | MC_0 | TBCLR | TBIE;
     //rising edge capture, select CCI1A, sync source, capture mode
     TB0CCTL1 = CM_1 | CCIS_0 | SCS | CAP;
     //no capture (compare mode off)
@@ -232,11 +233,14 @@ void stop_timera()
 
 void start_timera1()
 {
-    TB1CTL = MC_0 | TBCLR;
+    TB1EX0 = TBIDEX_3;
+    TB1CTL = MC_0;
+    TB1CTL |= TBCLR;
     timer_enable = 0;
     timer_sem = TIMER_RESOURCE-1;
-    TB1CCR0 = 1000-1;
-    TB1CTL = TBSSEL_2 | CNTL_0 | ID_0 | MC_1 | TBIE;
+    //TB1CCR0 = 1000-1;
+    //10 bit counter
+    TB1CTL = TBSSEL_2 | CNTL_2 | ID_0 | MC_2 | TBIE;
     TB1CCTL1 = CM_0 | CCIS_2;
     TB1CCR2 = 0;
     TB1CCTL2 =  CM_0 | CCIS_2;
@@ -244,15 +248,18 @@ void start_timera1()
 void timer_delay(unsigned int usec)
 {
      TB1CTL = TBSSEL_2 | ID_0 | MC_0;
-     usec += TB1R;
-     timer_msec[0] = usec / 1000;
-     usec = usec % 1000;
-     if (timer_msec[0] == 0)
+     unsigned long tmp = usec + TB1R;
+     TB1CCR1 = tmp & 0x03FF;
+     timer_msec[0] = 0;
+     if (TB1CCR1 == tmp)
          TB1CCTL1 = CM_0 | CCIS_2 | CCIE;
-     TB1CCR1 = usec;
+     else
+         timer_msec[0] = tmp >> 10;
+
      SET_FLAG(timer_enable,0);
-     TB1CTL = TBSSEL_2 | CNTL_0 | ID_0 | MC_1 | TBIE;
+     TB1CTL = TBSSEL_2 | CNTL_2 | ID_0 | MC_2 | TBIE;
+
      while (FLAG(timer_enable,0))
-         ;
+     {}
 }
 #endif
