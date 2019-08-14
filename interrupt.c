@@ -238,11 +238,11 @@ __interrupt void TimerB0(void)
             if (TB0CCR1 >= TIMER_SYN_MIN_LEN)
             {
                 //get pulse length measurement. timer_rcv_rate = 32/8 = 4 pulses.
-                timer_rcv_rate = TB0CCR1 >> 3;
+                timer_rcv_rate = TB0CCR1 >> 6;
                 //Rising edges mark the start of a new bit.
                 //TB0CCTL1 = CM_1 | CCIS_0 | SCS | CAP | CCIE;
                 //set counter to half a pulse (!push), begin counting for compare event
-                TB0CCR2 = TIMER_PULSE;
+                TB0CCR2 = timer_rcv_rate>>1;
                 TB0CCTL2 = CM_0 | OUTMOD_0 | CCIE;
 
                 //set variables
@@ -250,7 +250,6 @@ __interrupt void TimerB0(void)
                 timer_poll_count = 0;
                 timer_rcv_buffer[0] = 0;
 
-                timer_push(1);
                 timer_state = read;
             }
             //if too short, tb0ctl reset at top causes this routine to run again on next ovf/capture
@@ -272,16 +271,10 @@ __interrupt void TimerB0(void)
         if (tbiv == TBIV__TBCCR2)
         {
             timer_push(TB0CCTL1 & CCI);
-            TB0CCR2 += TIMER_PULSE;
-            if (timer_poll_count == 0)
-            {
-                TB0CCR2 = 0;
-            }
+            TB0CCR2 += timer_rcv_rate;
         }
         //on rising edge, reset timer and sampling rate, and set half pulse again
-        else if (    tbiv == TBIV__TBCCR1
-                /*&& TB0CCR1 >= TIMER_SYN_MIN_LEN/32*4
-                && TB0CCR1 <= TIMER_SYN_MIN_LEN/32*4    */)
+        /*else if (tbiv == TBIV__TBCCR1)
         {
             TB0CTL = MC_0;
             TB0CTL |= TBCLR;
@@ -294,9 +287,9 @@ __interrupt void TimerB0(void)
 
             //timer_push(1);
             TB0CCR2 = TIMER_HALF_PULSE;
-        }
+        }*/
         //on overflow save data and reset to idle
-        else if (tbiv == TBIV__TBIFG)
+        /*else if (tbiv == TBIV__TBIFG)
         {
             timer_decode();
             TB0CTL = MC_0;
@@ -304,7 +297,7 @@ __interrupt void TimerB0(void)
             TB0CTL = TBSSEL_2 | ID_0 | MC_1;
             TB0CCTL2 &= ~(CCIE);
             timer_state = idle;
-        }
+        }*/
 
         //if buffer is full, check if valid bit sequence.
         if (timer_rcv_index >= TIMER_RCV_BIT_LEN)

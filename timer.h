@@ -9,7 +9,7 @@
 #define TIMER_RCV_TELEGRAM 3
 #define TIMER_HALF_PULSE (timer_rcv_rate>>3)
 #define TIMER_PULSE (timer_rcv_rate>>2)
-#define TIMER_RCV_SAMPLES 4
+#define TIMER_RCV_SAMPLES 8//
 #define TIMER_RCV_ZERO    0b1000
 #define TIMER_RCV_ONE     0b1110
 #define TIMER_RESOURCE    5
@@ -32,7 +32,7 @@ unsigned long timer_rcv_transmission;
 volatile timer_state_t timer_state;
 volatile unsigned int timer_rcv_index;
 volatile unsigned int timer_poll_count;
-unsigned int timer_rcv_rate; //4 pulses
+unsigned int timer_rcv_rate; //1 pulses TODO:not compatible with old
 unsigned int timer_rcv_periods;
 volatile unsigned int timer_enable;
 volatile unsigned int timer_sem;
