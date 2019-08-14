@@ -45,6 +45,8 @@
 
 //SPECIAL
 #define GPIO_RF_INPUT            BIT1  //P1.1 ((must stay))
+#define GPIO_RADIO_BUSY          BIT2  //P1.2 //1 = BUSY, 0 = CLEAR
+#define GPIO_SIGDIR              BIT3  //P1.3 //1 =>radio, 0=>speaker
 #define GPIO_USCI_SS             BIT4  //P1.4
 #define GPIO_USCI_CLK            BIT5  //P1.5
 #define GPIO_USCI_MISO           BIT6  //P1.6
@@ -86,7 +88,7 @@ void init_globals(void);
 unsigned long get_multiple_call_button_ids(unsigned int num_of_ids);
 void add_to_queue(unsigned long button_id);
 void play_from_queue();
-void play_audio(unsigned int audio_channel)
+void play_audio(unsigned int audio_channel);
 void halt();
 
 

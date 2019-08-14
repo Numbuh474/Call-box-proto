@@ -483,18 +483,21 @@ void add_to_queue(unsigned long button_id)
 void play_from_queue()
 {
     //not playing, no interrupt.
-    if ( id_queue.length > 0 && !isd_is_playing() && can_play )
+    if ( id_queue.length > 0 && !isd_is_playing() && can_play &&!(P1IN & GPIO_RADIO_BUSY))
     {
         unsigned int audio_channel = get_audio_channel(queue_get(&id_queue,0));
+        set_gpio_p1_high(GPIO_SIGDIR);
         if (audio_channel == AUDIO_CHANNEL_NONE)
             queue_dequeue(&id_queue);
         else
             isd_set_play(audio_channel);
             can_play = 0;
     }
+    //not playing,
     else if ( id_queue.length > 0 && !isd_is_playing() )
     {
         queue_dequeue(&id_queue);
+        set_gpio_p1_low(GPIO_SIGDIR);
         can_play = 1;
     }
 }
