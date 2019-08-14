@@ -5,6 +5,8 @@
 
 #define TIMER_SYN_MAX_LEN (32*500)
 #define TIMER_SYN_MIN_LEN (32*300)
+#define TIMER_MIN_LEN 300
+#define TIMER_MAX_LEN 500
 #define TIMER_RCV_BIT_LEN 24
 #define TIMER_RCV_TELEGRAM 3
 #define TIMER_HALF_PULSE (timer_rcv_rate>>3)
@@ -26,8 +28,11 @@ typedef enum
 char timer_rcv_decode [TIMER_RCV_BIT_LEN];
 char timer_rcv_buffer [TIMER_RCV_BIT_LEN];
 unsigned int timer_msec [TIMER_RESOURCE];
-
+unsigned int timer_rfin;//current pulse type
+unsigned int timer_i;//last timestamp
 unsigned long timer_rcv_transmission;
+unsigned int timer_high_pulse;//
+unsigned int timer_low_pulse;
 
 volatile timer_state_t timer_state;
 volatile unsigned int timer_rcv_index;
